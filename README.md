@@ -127,7 +127,7 @@ The src folder has 2 folders log-archive-account and member-account in which we 
 
    8.15 CloudWatch LogGroup ARNs: Comma-delimited list of CloudWatch Log Group ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest CloudWatch Logs***.
 
-   8.16 Deploy Serverless Forwarder In VPC: Select 'yes' if you want to deploy the Elastic Serverless Forwarder in VPC. This is an optional parameter.
+   8.16 Deploy Serverless Forwarder In VPC: If you want to ingest either Kinesis data Streams or the CloudWatch logs to Elastic Cloud, an Elastic Serverless Forwarder will be deployed. Select 'yes' if you want to deploy this Elastic Serverless Forwarder in VPC. This is an optional parameter.
 
    8.17 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
 
@@ -142,13 +142,14 @@ In the Log Archive account, the Service Catalog product will be deploying the fo
 - S3 buckets to collect the S3 access logs from the member accounts
 - S3 buckets to collect the Elastic Load Balancer logs from the member accounts
 - S3 bucket to collect the VPC Flow logs from the member accounts
-- SQS Queue to notify Elastic Serverless Forwarder for VPC Flow Logs, Elastic Load Balancer logs, CloudTrail logs, and S3 Access logs from the respective S3 buckets.
+- SQS Queue to notify Elastic Serverless Forwarder for VPC Flow Logs, Elastic Load Balancer logs, CloudTrail logs, and S3 Access logs from the respective S3 buckets. Seperate SQS Queue is created for the logs from these buckets.
 - Policies for the S3 buckets and the SQS Queues.
 - KMS key to encrypt the SQS queue messages
 - Elastic Serverless Forwarder to ingest the logs to Elastic Cloud.
 - S3 bucket for storing the config.yaml file required for Elastic integration
 - Bootstrap lambda function which will run a Python script to create config file required for elastic integration and upload the file to S3 bucket
 - Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
+- The Elastic ID and the API key is encrypted using the Secret Manager.
  
 In the Member account, the Service Catalog will be deploying the following resources using the CFT elastic-buckets-kinesis-member.yaml.
 
