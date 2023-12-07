@@ -51,7 +51,7 @@ Parameters:
     KinesisDataStreamArn:
       Type: CommaDelimitedList
       Default: ""
-      Description: "Comma delimited list of Kinesis Data Stream ARNs (Provide the value only if you want to ingest the Kinesis data streams to the Elastic Cloud)
+      Description: "Comma delimited list of Kinesis Data Stream ARNs (Provide the value only if you want to ingest the Kinesis data streams to the Elastic Cloud)"
       
     IngestCloudWatchLogs:
       Type: String
@@ -60,7 +60,20 @@ Parameters:
       - "Yes"
       - "No"
       Description: "Do you want to ingest CloudWatch Log Group logs to the Elastic Cloud? (Choose 'Yes' or 'No'). If yes, provide log group ARNs."
+
+    IngestEC2Logs:
+      Type: String
+      Default: "No"
+      AllowedValues:
+      - "Yes"
+      - "No"
+      Description: "Do you want to ingest EC2 logs to the Elastic Cloud? (Choose 'Yes' or 'No')."
     
+    UserDataScript:
+      Type: String
+      Default: "#!/bin/bash -xe \n sudo apt update \n sudo apt install jq -y \n curl -L -O https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-8.10.4-linux-x86_64.tar.gz \n tar xzvf elastic-agent-8.10.4-linux-x86_64.tar.gz \n cd /elastic-agent-8.10.4-linux-x86_64 \n sudo ./elastic-agent install --url={Enter Kibanna URL here} --enrollment-token={Enter the authentication token generated while creating agent policy here} -f \n"
+      Description: "If you want to Ingest EC2 logs then edit this file & replace the URL & token with your Kibanna account URL & token or else leave this section default."
+
     CloudWatchLogGroupArns:
       Type: CommaDelimitedList
       Default: ""
@@ -76,17 +89,19 @@ Parameters:
 
     VPCId:
       Type: String
-      Description: 'Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder'. (Provide the value only if you want to deploy the Elastic Serverless Forwarder in the VPC)
+      Description: 'Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide the value only if you want to deploy the Elastic Serverless Forwarder in the VPC'
 
     SubnetIds:
       Type: CommaDelimitedList
-      Description: 'Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder'. (Provide the value only if you want to deploy the Elastic Serverless Forwarder in the VPC)
+      Description: 'Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide the value only if you want to deploy the Elastic Serverless Forwarder in the VPC'
       ConstraintDescription: 'Please enter a valid list of Subnet IDs.'
     
 Conditions:
   ShouldIngestKinesisDataStream: !Equals [!Ref IngestKinesisLogs, "Yes"]
   ShouldIngestCloudWatchLogs: !Equals [!Ref IngestCloudWatchLogs, "Yes"]
   ShouldDeployElasticForwarderInVPC: !Equals [!Ref DeployInVPC, "Yes"]
+  ShouldIngestEC2InstanceLogs: !Equals [!Ref IngestEC2Logs, "Yes"]
+
   
 Metadata:
   AWS::CloudFormation::Interface:
@@ -323,6 +338,23 @@ Resources:
             Effect: "Allow"
             Resource:
               - arn:aws:s3:::elastic-central-elb-access-logs-*/*
+              - arn:aws:s3:::elastic-central-waf-access-logs-*/*
+              - arn:aws:s3:::elastic-central-emr-access-logs-*/*
+              - arn:aws:s3:::elastic-central-nf-access-logs-*/*
+              - arn:aws:s3:::elastic-aws-emr-local-logs*/*
+              - arn:aws:s3:::elastic-aws-emr-local-logs*
+              - arn:aws:s3:::elastic-aws-elb-local-logs-*/*
+              - arn:aws:s3:::elastic-aws-elb-local-logs-*
+              - arn:aws:s3:::aws-waf-logs-elastic-local-logs-*/*
+              - arn:aws:s3:::aws-waf-logs-elastic-local-logs-*
+              - arn:aws:s3:::elastic-aws-nf-local-logs-*/*
+              - arn:aws:s3:::elastic-aws-nf-local-logs-*
+              - arn:aws:s3:::elastic-aws-cloudfront-local-logs-*/*
+              - arn:aws:s3:::elastic-aws-cloudfront-local-logs-*
+              - arn:aws:s3:::elastic-aws-cloudfront-local-logs-*/*
+              - arn:aws:s3:::elastic-aws-cloudfront-local-logs-*
+              - arn:aws:s3:::elastic-central-cloudfront-access-logs-*/*
+              - arn:aws:s3:::elastic-central-cloudfront-access-logs-*
           - 
             Action:
               - s3:ReplicateObject
@@ -332,6 +364,10 @@ Resources:
             Effect: "Allow"
             Resource:
               - arn:aws:s3:::elastic-central-elb-access-logs-*/*
+              - arn:aws:s3:::elastic-central-waf-access-logs-*/*
+              - arn:aws:s3:::elastic-central-emr-access-logs-*/*
+              - arn:aws:s3:::elastic-central-nf-access-logs-*/*
+              - arn:aws:s3:::elastic-central-cloudfront-access-logs-*/*
             Condition:
               StringEquals:
                 aws:PrincipalOrgID:
@@ -405,6 +441,262 @@ Resources:
               Service: delivery.logs.amazonaws.com
             Resource:
               - !Sub "arn:aws:s3:::${S3ElbLocalAccessLogBucket}"
+              
+  S3WafLocalAccessLogBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3LocalLoggingBucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+      BucketName: !Sub aws-waf-logs-elastic-local-logs-${AWS::AccountId}-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 1
+            Id: Remove replicated logs after 1 day
+            NoncurrentVersionExpirationInDays: 1
+            Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LocalLoggingBucket
+        LogFilePrefix: !Sub "aws-waf-logs-elastic-local-logs-${AWS::AccountId}-${AWS::Region}/"
+      ReplicationConfiguration:
+        Role: !Sub arn:aws:iam::${AWS::AccountId}:role/elastic-AWS-S3-Replication
+        Rules:
+          - Prefix: ""
+            Status: "Enabled"
+            Destination:
+              AccessControlTranslation:
+                Owner: Destination
+              Bucket: !Sub arn:aws:s3:::elastic-central-waf-access-logs-${LoggingAccountId}-${LoggingRegion}
+              Account: !Ref LoggingAccountId
+      VersioningConfiguration:
+        Status: Enabled
+
+  S3WafAccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3WafLocalAccessLogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSBucketPermissionsCheck
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3WafLocalAccessLogBucket}/*"
+          - Sid: LogDelivery
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3WafLocalAccessLogBucket}/*"
+            Condition:
+              StringEquals:
+                "s3:x-amz-acl": "bucket-owner-full-control"
+          - Sid: LogDeliveryPermissionCheck
+            Action: s3:GetBucketAcl
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3WafLocalAccessLogBucket}"
+
+  S3EmrLocalAccessLogBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3LocalLoggingBucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+      BucketName: !Sub elastic-aws-emr-local-logs-${AWS::AccountId}-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 1
+            Id: Remove replicated logs after 1 day
+            NoncurrentVersionExpirationInDays: 1
+            Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LocalLoggingBucket
+        LogFilePrefix: !Sub "elastic-aws-emr-local-logs-${AWS::AccountId}-${AWS::Region}/"
+      ReplicationConfiguration:
+        Role: !Sub arn:aws:iam::${AWS::AccountId}:role/elastic-AWS-S3-Replication
+        Rules:
+          - Prefix: ""
+            Status: "Enabled"
+            Destination: 
+              AccessControlTranslation:
+                Owner: Destination
+              Bucket: !Sub arn:aws:s3:::elastic-central-emr-access-logs-${LoggingAccountId}-${LoggingRegion}
+              Account: !Ref LoggingAccountId
+      VersioningConfiguration:
+        Status: Enabled
+
+  S3EmrAccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3EmrLocalAccessLogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSBucketPermissionsCheck
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3EmrLocalAccessLogBucket}/*"
+          - Sid: LogDelivery
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3EmrLocalAccessLogBucket}/*"
+            Condition:
+              StringEquals:
+                "s3:x-amz-acl": "bucket-owner-full-control"
+          - Sid: LogDeliveryPermissionCheck
+            Action: s3:GetBucketAcl
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3EmrLocalAccessLogBucket}"
+
+  S3NfLocalAccessLogBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3LocalLoggingBucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+      BucketName: !Sub elastic-aws-nf-local-logs-${AWS::AccountId}-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 1
+            Id: Remove replicated logs after 1 day
+            NoncurrentVersionExpirationInDays: 1
+            Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LocalLoggingBucket
+        LogFilePrefix: !Sub "elastic-aws-nf-local-logs-${AWS::AccountId}-${AWS::Region}/"
+      ReplicationConfiguration:
+        Role: !Sub arn:aws:iam::${AWS::AccountId}:role/elastic-AWS-S3-Replication
+        Rules:
+          - Prefix: ""
+            Status: "Enabled"
+            Destination: 
+              AccessControlTranslation:
+                Owner: Destination
+              Bucket: !Sub arn:aws:s3:::elastic-central-nf-access-logs-${LoggingAccountId}-${LoggingRegion}
+              Account: !Ref LoggingAccountId
+      VersioningConfiguration:
+        Status: Enabled
+
+  S3NfAccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3NfLocalAccessLogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSBucketPermissionsCheck
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3NfLocalAccessLogBucket}/*"
+          - Sid: LogDelivery
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3NfLocalAccessLogBucket}/*"
+            Condition:
+              StringEquals:
+                "s3:x-amz-acl": "bucket-owner-full-control"
+          - Sid: LogDeliveryPermissionCheck
+            Action: s3:GetBucketAcl
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3NfLocalAccessLogBucket}"
+
+  S3CloudfrontLocalAccessLogBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: S3LocalLoggingBucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+      BucketName: !Sub elastic-aws-cloudfront-local-logs-${AWS::AccountId}-${AWS::Region}
+      LifecycleConfiguration:
+        Rules:
+          - ExpirationInDays: 1
+            Id: Remove replicated logs after 1 day
+            NoncurrentVersionExpirationInDays: 1
+            Status: Enabled
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3LocalLoggingBucket
+        LogFilePrefix: !Sub "elastic-aws-cloudfront-local-logs-${AWS::AccountId}-${AWS::Region}/"
+      ReplicationConfiguration:
+        Role: !Sub arn:aws:iam::${AWS::AccountId}:role/elastic-AWS-S3-Replication
+        Rules:
+          - Prefix: ""
+            Status: "Enabled"
+            Destination: 
+              AccessControlTranslation:
+                Owner: Destination
+              Bucket: !Sub arn:aws:s3:::elastic-central-cloudfront-access-logs-${LoggingAccountId}-${LoggingRegion}
+              Account: !Ref LoggingAccountId
+      VersioningConfiguration:
+        Status: Enabled
+
+  S3CloudfrontAccessLogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3CloudfrontLocalAccessLogBucket
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: AWSBucketPermissionsCheck
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              AWS:
+                - !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3CloudfrontLocalAccessLogBucket}/*"
+          - Sid: LogDelivery
+            Action: s3:PutObject
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3CloudfrontLocalAccessLogBucket}/*"
+            Condition:
+              StringEquals:
+                "s3:x-amz-acl": "bucket-owner-full-control"
+          - Sid: LogDeliveryPermissionCheck
+            Action: s3:GetBucketAcl
+            Effect: Allow
+            Principal:
+              Service: delivery.logs.amazonaws.com
+            Resource:
+              - !Sub "arn:aws:s3:::${S3CloudfrontLocalAccessLogBucket}"
               
   S3LocalLoggingBucket:
     Type: AWS::S3::Bucket
@@ -649,4 +941,110 @@ Resources:
           - ':'
           - !Select [0, !GetAtt VPCEndpoint.DnsEntries]
   
+  elasticVpc:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.10.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+
+  elasticInternetGateway:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::InternetGateway"
+
+  attachInternetGateway:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      InternetGatewayId:
+        Ref: "elasticInternetGateway"
+      VpcId:
+        Ref: "elasticVpc"
+
+  elasticSubnet:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      AvailabilityZone: "us-east-1a"
+      MapPublicIpOnLaunch: true
+      VpcId:
+        Ref: "elasticVpc"
+      CidrBlock: "10.10.0.0/24"
+
+  elasticRouteTable:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId:
+        Ref: "elasticVpc"
+
+  elasticRoute:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::Route"
+    DependsOn: "attachInternetGateway"
+    Properties:
+      RouteTableId:
+        Ref: "elasticRouteTable"
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId:
+        Ref: "elasticInternetGateway"
+
+  elasticSubnetRouteTableAssociation:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId:
+        Ref: "elasticSubnet"
+      RouteTableId:
+        Ref: "elasticRouteTable"
+
+  InstanceSecurityGroup:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow SSH to client host"
+      VpcId:
+        Ref: "elasticVpc"
+      SecurityGroupIngress:
+        - IpProtocol: "tcp"
+          FromPort: 0
+          ToPort: 10000
+          CidrIp: "0.0.0.0/0"
+        - IpProtocol: "tcp"
+          FromPort: 22
+          ToPort: 22
+          CidrIp: "0.0.0.0/0"
+
+  elasticEc2Instance:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: "ami-0fc5d935ebf8bc3bc"
+      InstanceType: "t2.micro"
+      SecurityGroupIds:
+        - Ref: "InstanceSecurityGroup"
+      BlockDeviceMappings:
+        - DeviceName: "/dev/sda1"
+          Ebs:
+            Encrypted: false
+            DeleteOnTermination: true
+            VolumeSize: 30
+            VolumeType: "gp2"
+      KeyName:
+        Ref: "NewKeyPair"
+      SubnetId:
+        Ref: "elasticSubnet"
+      UserData:
+        Fn::Base64:
+          Ref: UserDataScript
+      Tags:
+        - Key: "Name"
+          Value: "Elastic-EC2"
+
+  NewKeyPair:
+    Condition: ShouldIngestEC2InstanceLogs
+    Type: "AWS::EC2::KeyPair"
+    Properties:
+      KeyName: "elasticKeyPair"
 
