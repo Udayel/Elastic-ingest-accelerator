@@ -12,7 +12,7 @@ The following architecture diagram outlines high-level components involved in in
 
 ## Pre-requisites
 
-- You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account and deploy the CloudTrail.
+- You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account and deploy the CloudTrail. Please refer to the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
 - Before the Service catalog is deployed, please have all the required resources like Elastic Load Balancer, Kinesis Data Stream, S3 buckets, etc deployed.
 - The forwarder Lambda function that creates the config.yaml file for Elastic Serverless Forwarder is written in Python, and requires a set of node modules. These required scripts and packages are zipped and uploaded in the src folder. Download the zip file **ElasticBootstrapLambdaLogArchiveAccount** from the folder log-archive-account in src and the zip file **ElasticBootstrapLambdaMemberAccount** from the folder member-account in src. Create S3 bucket in the region where you want to deploy the service catalog and upload these zip files in the bucket. The zip files need to have the following bucket policy so they can be shared with the organization and accessed by the forwarder Lambda function deployment. Please refer to the sample code below and provide the arn of the S3 bucket and the organization ID as required:
 
@@ -51,6 +51,22 @@ The service catalog must be deployed to the Log Archive account and the customer
 - VPC Flow logs
 - Kinesis Data Stream
 - CloudWatch logs
+- CloudWatch logs
+- GuardDuty logs
+- Ec2 logs
+- Network Firewall logs
+- WAF logs
+- CloudFront logs
+- EMR logs
+- Security lake logs
+- SQS Management Event logs via CloudTrail
+- AWS Lambda logs via CloudTrail
+- AWS Inspector logs via CloudTrail
+- Security Hub logs via CloudTrail
+- ECS logs via CloudWatch
+- Route 53 logs via CloudWatch
+- API Gateway logs via CloudWatch
+
 
 The service catalog will be deploying the solution as per the resources deployed in the member account and user requirements of the logs that are to be ingested into the Elastic Cloud. The CFT will deploy resources in the Log-Archive account and then another CFT will deploy the required resources in the member account. Please note that the deployment of the CFT should be initiated from the Master account and all the required resources will be deployed to the Log Archive account and the member account using the CloudFormation Stackset.
 
