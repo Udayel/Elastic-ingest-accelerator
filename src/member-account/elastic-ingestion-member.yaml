@@ -69,10 +69,15 @@ Parameters:
       - "No"
       Description: "Do you want to ingest EC2 logs to the Elastic Cloud? (Choose 'Yes' or 'No')."
     
-    UserDataScript:
+    KibanaURL:
       Type: String
-      Default: "#!/bin/bash -xe \n sudo apt update \n sudo apt install jq -y \n curl -L -O https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-8.10.4-linux-x86_64.tar.gz \n tar xzvf elastic-agent-8.10.4-linux-x86_64.tar.gz \n cd /elastic-agent-8.10.4-linux-x86_64 \n sudo ./elastic-agent install --url={Enter Kibanna URL here} --enrollment-token={Enter the authentication token generated while creating agent policy here} -f \n"
-      Description: "If you want to Ingest EC2 logs then edit this file & replace the URL & token with your Kibanna account URL & token or else leave this section default."
+      Default: ""
+      Description: "If you want to ingest EC2 logs to Elastic Cloud, then provide the Kibana URL in this section."
+
+    EnrollmentToken:
+      Type: String
+      Default: ""
+      Description: "If you want to ingest EC2 logs to Elastic Cloud, then provide the Enrollment Token in this section."
 
     CloudWatchLogGroupArns:
       Type: CommaDelimitedList
@@ -1035,9 +1040,16 @@ Resources:
         Ref: "NewKeyPair"
       SubnetId:
         Ref: "elasticSubnet"
-      UserData:
-        Fn::Base64:
-          Ref: UserDataScript
+      UserData: !Base64 
+        'Fn::Sub': |
+          #!/bin/bash -xe 
+           echo 'Starting user data script' > /var/log/user_data.log 
+           sudo apt update 
+           sudo apt install jq -y 
+           curl -L -O https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-8.11.0-linux-x86_64.tar.gz 
+           tar xzvf elastic-agent-8.11.0-linux-x86_64.tar.gz 
+           cd /elastic-agent-8.11.0-linux-x86_64 
+           sudo ./elastic-agent install --url=${KibanaURL} --enrollment-token=${EnrollmentToken} -f 
       Tags:
         - Key: "Name"
           Value: "Elastic-EC2"

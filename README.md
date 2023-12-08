@@ -13,7 +13,7 @@ The following architecture diagram outlines high-level components involved in in
 ## Pre-requisites
 
 - You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account and deploy the CloudTrail. Please refer to the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
-- Before the Service catalog is deployed, please have all the required resources like Elastic Load Balancer, Kinesis Data Stream, S3 buckets, etc deployed.
+- Before the Service catalog is deployed, please have all the required resources like Elastic Load Balancer, Kinesis Data Stream, S3 buckets, etc deployed if you want the logs of these resources to be ingested to the Elastic Cloud
 - The forwarder Lambda function that creates the config.yaml file for Elastic Serverless Forwarder is written in Python, and requires a set of node modules. These required scripts and packages are zipped and uploaded in the src folder. Download the zip file **ElasticBootstrapLambdaLogArchiveAccount** from the folder log-archive-account in src and the zip file **ElasticBootstrapLambdaMemberAccount** from the folder member-account in src. Create S3 bucket in the region where you want to deploy the service catalog and upload these zip files in the bucket. The zip files need to have the following bucket policy so they can be shared with the organization and accessed by the forwarder Lambda function deployment. Please refer to the sample code below and provide the arn of the S3 bucket and the organization ID as required:
 
   ```
@@ -69,6 +69,46 @@ The service catalog must be deployed to the Log Archive account and the customer
 
 
 The service catalog will be deploying the solution as per the resources deployed in the member account and user requirements of the logs that are to be ingested into the Elastic Cloud. The CFT will deploy resources in the Log-Archive account and then another CFT will deploy the required resources in the member account. Please note that the deployment of the CFT should be initiated from the Master account and all the required resources will be deployed to the Log Archive account and the member account using the CloudFormation Stackset.
+
+### Deployment Flow:
+
+The Service Catalog deploys the required resources in the Log archive account and the member accounts. Following diagram shows the deployment flow of the CFT in the Log archive account.
+
+![alt text](images/Elastic-Log-Archive-Flow.png)
+
+Following diagram shows the deployment flow of the CFT in the member account.
+
+![alt text](images/Elastic-Member-Account-Flow.png)
+
+### Technical details:
+
+In the Log Archive account, the Service Catalog product will be deploying the following resources using the CFT elastic-ingestion-log-archive.yaml.
+
+- S3 buckets to collect the S3 access logs from the member accounts
+- S3 buckets to collect the Elastic Load Balancer logs from the member accounts
+- S3 bucket to collect the VPC Flow logs from the member accounts
+- S3 bucket to collect the Network Firewall logs from the member accounts
+- S3 bucket to collect the WAF logs from the member accounts
+- S3 bucket to collect the CloudFront logs from the member accounts
+- S3 bucket to collect the EMR logs from the member accounts
+- SQS Queue to notify Elastic Serverless Forwarder for VPC Flow Logs, Elastic Load Balancer logs, CloudTrail logs, S3 Access logs, Network Firewall logs, EMR logs, WAF logs, and CloudFront from the respective S3 buckets. Seperate SQS Queue is created for the logs from these buckets.
+- Policies for the S3 buckets and the SQS Queues.
+- KMS key to encrypt the SQS queue messages
+- Elastic Serverless Forwarder to ingest the logs to Elastic Cloud.
+- S3 bucket for storing the config.yaml file required for Elastic integration
+- Bootstrap lambda function which will run a Python script to create config file required for elastic integration and upload the file to S3 bucket
+- Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
+- The Elastic ID and the API key is encrypted using the Secret Manager.
+ 
+In the Member account, the Service Catalog will be deploying the following resources using the CFT elastic-buckets-kinesis-member.yaml.
+
+- S3 buckets to store the VPC flow logs, S3 access logs, CloudTrail logs, S3 Access logs, Network Firewall logs, EMR logs, WAF logs, and CloudFront. These logs will be replicated to the buckets in the log archive account.
+- Policies for the S3 buckets
+- If the user wants to either ingest Kinesis Data Streams or Amazon Cloudwatch logs to Elastic Cloud, then the following resources will be deployed. Please note that in this case the Kinesis Data Stream/Amazon Cloudwatch should be deployed in the member account as per the requirement.
+- S3 bucket for storing the cofig.yaml file. 
+- Bootstrap Lambda function which will run a Python script to create config.yaml file required for elastic integration and upload the file to S3 bucket. 
+- Elastic Serverless Forwarder to ingest the Kinesis Data Stream/Amazon Cloudwatch logs to Elastic Cloud as per requirement.
+- Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
 
 ### Deployment Steps:
 
@@ -150,30 +190,4 @@ The src folder has 2 folders log-archive-account and member-account in which we 
    8.18 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
    
 15.  Once the deployment of the CFTs are completed, log into the Elastic dashboard to view the logs ingested.
-
-### Technical details:
-
-In the Log Archive account, the Service Catalog product will be deploying the following resources using the CFT elastic-ingestion-log-archive.yaml.
-
-- S3 buckets to collect the S3 access logs from the member accounts
-- S3 buckets to collect the Elastic Load Balancer logs from the member accounts
-- S3 bucket to collect the VPC Flow logs from the member accounts
-- SQS Queue to notify Elastic Serverless Forwarder for VPC Flow Logs, Elastic Load Balancer logs, CloudTrail logs, and S3 Access logs from the respective S3 buckets. Seperate SQS Queue is created for the logs from these buckets.
-- Policies for the S3 buckets and the SQS Queues.
-- KMS key to encrypt the SQS queue messages
-- Elastic Serverless Forwarder to ingest the logs to Elastic Cloud.
-- S3 bucket for storing the config.yaml file required for Elastic integration
-- Bootstrap lambda function which will run a Python script to create config file required for elastic integration and upload the file to S3 bucket
-- Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
-- The Elastic ID and the API key is encrypted using the Secret Manager.
- 
-In the Member account, the Service Catalog will be deploying the following resources using the CFT elastic-buckets-kinesis-member.yaml.
-
-- S3 buckets to store the VPC flow logs and S3 access logs. These logs will be replicated to the buckets in the log archive account.
-- Policies for the S3 buckets
-- If the user wants to either ingest Kinesis Data Streams or Amazon Cloudwatch logs to Elastic Cloud, then the following resources will be deployed. Please note that in this case the Kinesis Data Stream/Amazon Cloudwatch should be deployed in the member account as per the requirement.
-  - S3 bucket for storing the cofig.yaml file. 
-  - Bootstrap Lambda function which will run a Python script to create config.yaml file required for elastic integration and upload the file to S3 bucket. 
-  - Elastic Serverless Forwarder to ingest the Kinesis Data Stream/Amazon Cloudwatch logs to Elastic Cloud as per requirement.
-  - Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
 
