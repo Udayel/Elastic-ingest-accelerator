@@ -72,7 +72,7 @@ Metadata:
   AWS::CloudFormation::Interface:
     ParameterGroups:
     - Label:
-        default: S3 CloudTrail bucket Details of Log Archive Account 
+        default: S3 CloudTrail bucket details of Log Archive Account 
       Parameters:
       - CloudTrailBucketName
       - CloudTrailBucketARN
