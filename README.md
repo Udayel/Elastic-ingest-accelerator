@@ -74,11 +74,11 @@ The service catalog will be deploying the solution as per the resources deployed
 
 The Service Catalog deploys the required resources in the Log archive account and the member accounts. Following diagram shows the deployment flow of the CFT in the Log archive account.
 
-![alt text](images/Elastic-Log-Archive-Flow)
+![alt text](images/Elastic-Log-Archive-Flow.png)
 
 Following diagram shows the deployment flow of the CFT in the member account.
 
-![alt text](images/Elastic-Member-Account-Flow)
+![alt text](images/Elastic-Member-Account-Flow.png)
 
 ### Technical details:
 
