@@ -272,21 +272,21 @@ The src folder has 2 folders log-archive-account and member-account in which we 
 
 2. Go to Service catalog and create a portfolio to organize your products and distribute them to end users. Please refer to the [Create a Portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-portfolio.html).
 
-![alt text](images/create-portfolio.png)
+    ![alt text](images/create-portfolio.png)
 
 3. Download the CFTs **elastic-ingestion-log-archive.yaml** in log-archive-account folder from the src folder and **elastic-ingestion-member.yaml** in member-account folder from the src folder.
 
 4. Go to the Portfolio that you created and create 2 products - 1 for deploying resources in the Log Archive account and another one for deploying the resources in the member account. Select the product type as **CloudFormation** and version source as **use a template file** and upload the CFT downloaded from the src folder. Please refer to the [Create a new product in the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-product.html).
 
-![alt text](images/create-log-archive-product.png)
+    ![alt text](images/create-log-archive-product.png)
 
-![alt text](images/create-member-account-product.png)
+    ![alt text](images/create-member-account-product.png)
 
 5. Create constraints for both the products created. For the product created for elastic-ingestion-log-archive.yaml, select **StackSet** as Constraint Type and enter the Log Archive account ID, so that the product can just be deployed in that particular account only. For the product created for elastic-ingestion-member.yaml, select **StackSet** as Constraint Type, and enter the member account ID/IDs, so that the product can just be deployed only in the mentioned member accounts. Also, provide the region specification for both the product constraints so the deployment can be only done in the region where the bucket that contains the zip file was deployed earlier. Please refer to [Adding Constraints](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/portfoliomgmt-constraints.html) for more details.
 
-![alt text](images/log-archive-constraint.png)
+    ![alt text](images/log-archive-constraint.png)
 
-![alt text](images/member-account-constraint.png)
+    ![alt text](images/member-account-constraint.png)
 
 6. Once the products are added to the portfolio and constraints are added, you need to grant permission to allow yourself to view and launch products. Please refer to [Grant end users access to the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-deploy.html) for more details.
 
