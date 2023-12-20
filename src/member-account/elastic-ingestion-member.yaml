@@ -131,6 +131,12 @@ Metadata:
       - BootstrapLambdaConfigBucket
       - BootstrapLambdaConfigFilePath
     - Label:
+        default: Ingest EC2 Instance Logs
+      Parameters:
+      - IngestEC2Logs
+      - KibanaURL
+      - EnrollmentToken
+    - Label:
         default: Ingest kinesis data stream (Optional)
       Parameters:
       - IngestKinesisLogs
@@ -161,6 +167,12 @@ Metadata:
         default: Bootstrap Lambda Config Bucket
       BootstrapLambdaConfigFilePath:
         default: Bootstrap Lambda Config File Path
+      IngestEC2Logs:
+        default: Ingest EC2 Logs
+      KibanaURL:
+        default: Kibana URL
+      EnrollmentToken:
+        default: Enrollment Token
       IngestKinesisLogs:
         default: Ingest Kinesis Logs
       KinesisDataStreamArn:
@@ -1059,4 +1071,3 @@ Resources:
     Type: "AWS::EC2::KeyPair"
     Properties:
       KeyName: "elasticKeyPair"
-
