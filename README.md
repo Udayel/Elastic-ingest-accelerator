@@ -15,7 +15,7 @@ The following architecture diagram outlines high-level components involved in in
 ## Pre-requisites
 
 - You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account and deploy the CloudTrail. Please refer to the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
-- Before the Service catalog is deployed, please have all the required resources like Elastic Load Balancer, Kinesis Data Stream, S3 buckets, etc deployed if you want the logs of these resources to be ingested to the Elastic Cloud.
+- After the Service catalog is deployed, the logs of the resources mentioned below in the document will be ingested to the Elastic Cloud, please make sure you have the right configurations for these resources to ingest the logs
 - The forwarder Lambda function that creates the config.yaml file for Elastic Serverless Forwarder is written in Python, and requires a set of node modules. These required scripts and packages are zipped and uploaded in the src folder. Download the zip file **ElasticBootstrapLambdaLogArchiveAccount** from the folder log-archive-account in src and the zip file **ElasticBootstrapLambdaMemberAccount** from the folder member-account in src. Create S3 bucket in the region where you want to deploy the service catalog and upload these zip files in the bucket. The zip files need to have the following bucket policy so they can be shared with the organization and accessed by the forwarder Lambda function deployment. Please refer to the sample code below and provide the arn of the S3 bucket and the organization ID as required:
 
   ```
@@ -71,6 +71,75 @@ The service catalog must be deployed to the Log Archive account and the customer
 
 The service catalog will be deploying the solution as per the resources deployed in the member account and user requirements of the logs that are to be ingested into the Elastic Cloud. The CFT will deploy resources in the Log-Archive account and then another CFT will deploy the required resources in the member account. Please note that the deployment of the CFT should be initiated from the Master account and all the required resources will be deployed to the Log Archive account and the member account using the CloudFormation Stackset.
 
+### AWS Control Tower Overview
+
+AWS Control Tower simplifies the process of setting up and governing a secure, multi-account AWS environment based on AWS best practices. It is particularly useful for organizations that require a scalable and standardized approach to managing multiple AWS accounts.
+
+#### Key features and components of AWS Control Tower include:
+
+###### AWS Landing Zone:
+
+- The Landing Zone is the foundation of the multi-account AWS environment created by AWS Control Tower.
+- It includes a set of best-practice blueprints and guidelines for setting up a secure, well-architected environment.
+
+For the latest and more information, refer to the [AWS Landing Zone](https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-aws-environment/understanding-landing-zones.html).
+
+###### Account Vending:
+
+- AWS Control Tower automates the creation of new AWS accounts using predefined account blueprints.
+- It ensures that new accounts adhere to organizational policies and best practices.
+
+For the latest and more information, to refer to the [Account Factory](https://docs.aws.amazon.com/controltower/latest/userguide/account-factory.html).
+
+###### Multi-account Architecture:
+
+- It enables the creation and management of a multi-account structure, which is recommended for security and resource isolation.
+- AWS Control Tower creates Log Archive and Audit Account which plays a crucial role in maintaining visibility and compliance across the AWS environment.
+- The multi-account setup includes a master account and separate member accounts.
+
+For the latest and more information, to refer to the [Multi Account Setup](https://docs.aws.amazon.com/controltower/latest/userguide/aws-multi-account-landing-zone.html).
+
+###### Guardrails:
+
+- Guardrails are a set of predefined policies that are enforced automatically to ensure compliance with security and operational best practices.
+- AWS Control Tower implements guardrails to help prevent policy violations in member accounts.
+
+For the latest and more information, to refer to the [Controls](https://docs.aws.amazon.com/wellarchitected/latest/management-and-governance-guide/controls.html).
+
+###### Service Control Policies (SCPs):
+
+- SCPs are used to set fine-grained permissions on AWS accounts within the organization.
+- SCPs can be used to control access to AWS services and resources, ensuring compliance with organizational policies.
+
+For the latest and more information, to refer to the [SCPs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html).
+
+###### Audit and Monitoring:
+
+- AWS Control Tower provides visibility into the compliance status of member accounts.
+- It involves monitoring the performance and health of resources, as well as conducting audits to ensure compliance with security policies and industry regulations.
+
+For the latest and more information, to refer to the [Logging & Monitoring](https://docs.aws.amazon.com/controltower/latest/userguide/logging-and-monitoring.html).
+
+###### Continuous Improvement:
+
+- AWS Control Tower supports continuous improvement by allowing organizations to update and refine their account blueprints and guardrails over time.
+- This ensures that the environment stays in compliance with evolving security and operational requirements. 
+
+###### Integration with AWS Organizations: 
+
+- AWS Control Tower integrates with AWS Organizations, making it easier to manage and govern a growing number of AWS accounts.
+
+For the latest and more information, to refer to the [AWS Organization](https://docs.aws.amazon.com/organizations/latest/userguide/services-that-can-integrate-CTower.html).
+
+###### Log Archive Account: 
+
+- The Log Archive account is a dedicated AWS account created by AWS Control Tower to centralize and store logs generated by member accounts.
+- It serves as a centralized location for storing security and operational logs, ensuring long-term retention and easy access.
+
+###### Audit Account: 
+
+- It serves as a centralized location for conducting audits, security assessments, and compliance checks across the AWS environment.
+
 ### How Each Log Input is Collected and Sent to Elastic
 
 #### AWS CloudTrail  
@@ -103,7 +172,7 @@ GuardDuty supports exporting active findings to CloudWatch Events and, optionall
 
 #### Amazon Ec2 logs
 
-For the EC2 logs to be injected to the Elastic Cloud, you need an EC2 instance with elastic agent installed in it. The CFT will deploy an EC2 instance & you have to provide the Kibanna URL & Authentication token. The bash script will take care of installation of elastic agent in the EC2 instance deployed & will automatically list this agent in the Kibanna fleet. For fetching the logs from other EC2 instance in the elastic cloud, youwe would have to send the syslogs from the source instance to the EC2 instance where the elastic agent is running & you would be able to view the logs in elastic cloud for the source instance.
+For the EC2 logs to be injected to the Elastic Cloud, you need an EC2 instance with elastic agent installed in it. The CFT will deploy an EC2 instance & you have to provide the Kibanna URL & Authentication token. The bash script will take care of installation of elastic agent in the EC2 instance deployed & will automatically list this agent in the Kibanna fleet. For fetching the logs from other EC2 instance in the elastic cloud, you would have to send the syslogs from the source instance to the EC2 instance where the elastic agent is running & you would be able to view the logs in elastic cloud for the source instance.
 
 #### AWS Network Firewall logs
 
@@ -200,11 +269,28 @@ In the Member account, the Service Catalog will be deploying the following resou
 The src folder has 2 folders log-archive-account and member-account in which we have uploaded the required CFT files. Following are the instructions to deploy the Service Catalog solution in your AWS account.
 
 1. Login to the AWS Master account.
+
 2. Go to Service catalog and create a portfolio to organize your products and distribute them to end users. Please refer to the [Create a Portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-portfolio.html).
+
+![alt text](images/create-portfolio.png)
+
 3. Download the CFTs **elastic-ingestion-log-archive.yaml** in log-archive-account folder from the src folder and **elastic-ingestion-member.yaml** in member-account folder from the src folder.
-4. Create 2 products - 1 for deploying resources in the Log Archive account and another one for deploying the resources in the member account. Select the product type as **CloudFormation** and version source as **use a template file** and  upload the CFT downloaded from the src folder. Please refer to the [Create a new product in the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-product.html).
+
+4. Go to the Portfolio that you created and create 2 products - 1 for deploying resources in the Log Archive account and another one for deploying the resources in the member account. Select the product type as **CloudFormation** and version source as **use a template file** and upload the CFT downloaded from the src folder. Please refer to the [Create a new product in the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-product.html).
+
+![alt text](images/create-log-archive-product.png)
+
+![alt text](images/create-member-account-product.png)
+
 5. Create constraints for both the products created. For the product created for elastic-ingestion-log-archive.yaml, select **StackSet** as Constraint Type and enter the Log Archive account ID, so that the product can just be deployed in that particular account only. For the product created for elastic-ingestion-member.yaml, select **StackSet** as Constraint Type, and enter the member account ID/IDs, so that the product can just be deployed only in the mentioned member accounts. Also, provide the region specification for both the product constraints so the deployment can be only done in the region where the bucket that contains the zip file was deployed earlier. Please refer to [Adding Constraints](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/portfoliomgmt-constraints.html) for more details.
+
+![alt text](images/log-archive-constraint.png)
+
+![alt text](images/member-account-constraint.png)
+
 6. Once the products are added to the portfolio and constraints are added, you need to grant permission to allow yourself to view and launch products. Please refer to [Grant end users access to the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-deploy.html) for more details.
+
+
 7. Now we are ready to deploy the products. To deploy the products to the Log Archive account, go to the **products** page, you will see the products for which you have granted access. Select the product and click on **Launch product**, provide the following parameters, and click on **Launch product** again:
 
    7.1 Provisioned product name: Enter a unique name or select Generate name to provide a name automatically
@@ -219,21 +305,25 @@ The src folder has 2 folders log-archive-account and member-account in which we 
 
    7.6 CloudTrail Bucket ARN: ARN of the AWS Control Tower created CloudTrail S3 bucket present in Log Archive Account
 
-   7.7 Elastic Cloud ID: Cloud ID of Elastic Cluster Deployment
+   7.7 Security Lake Bucket ARN: ARN of the Security Lake S3 bucket present in Log Archive Account
 
-   7.8 Elastic API Key: RESTful API to provide access to deployment CRUD actions
+   7.8 Security Lake SQS ARN: ARN of the Security Lake SQS present in Log Archive Account
+   
+   7.9 Elastic Cloud ID: Cloud ID of Elastic Cluster Deployment
+   
+   7.10 Elastic API Key: RESTful API to provide access to deployment CRUD actions
 
-   7.9 Bootstrap Lambda Config Bucket: The S3 bucket name where the Bootstrap Lambda configuration zip file is stored.
+   7.11 Bootstrap Lambda Config Bucket: The S3 bucket name where the Bootstrap Lambda configuration zip file is stored.
 
-   7.10 Bootstrap Lambda Config File Path: The path in the S3 bucket where the Lambda configuration zip file is located.
+   7.12 Bootstrap Lambda Config File Path: The path in the S3 bucket where the Lambda configuration zip file is located.
 
-   7.11 AWS Organization ID: The ID of your AWS Organization.
+   7.13 AWS Organization ID: The ID of your AWS Organization.
 
-   7.12 Deploy Serverless Forwarder In VPC: Select 'yes' if you want to deploy the Elastic Serverless Forwarder in VPC. This is an optional parameter.
+   7.14 Deploy Serverless Forwarder In VPC: Select 'yes' if you want to deploy the Elastic Serverless Forwarder in VPC. This is an optional parameter.
 
-   7.13 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+   7.15 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
 
-   7.14 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+   7.16 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
 
 
 8. To deploy the products to the Log Archive account, go to the **products** page, select the product and click on **Launch product**, provide the following parameters, and click on **Launch product** again::
@@ -262,7 +352,7 @@ The src folder has 2 folders log-archive-account and member-account in which we 
 
    8.12 Ingest Kinesis Logs: Select 'yes' if you want to ingest Kinesis data streams. This is an optional parameter.
 
-   8.13 Kinesis Data Stream ARNs: Comma-delimited list of Kinesis Data Stream ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest Kinesis Log***.
+   8.13 Kinesis Data Stream ARNs: Comma-delimited list of Kinesis Data Stream ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest Kinesis Logs***.
 
    8.14 Ingest CloudWatch Logs: Select 'yes' if you want to ingest CloudWatch Log Group logs. This is an optional parameter.
 
@@ -273,6 +363,12 @@ The src folder has 2 folders log-archive-account and member-account in which we 
    8.17 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
 
    8.18 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+   
+   8.19 Ingest Ec2 logs: Select 'yes' if you want to ingest Ec2 logs. This is an optional parameter.
+
+   8.20 Enrollment Token: Provide the Enrollment Token only if you have selected 'yes' for the parameter ***Ingest Ec2 Logs***.
+
+   8.21 Kibana URL: Provide the Kibana URL only if you have selected 'yes' for the parameter ***Ingest Ec2 Logs***.
    
 9.  Once the deployment of the CFTs are completed, log into the Elastic dashboard to view the logs ingested.
 
