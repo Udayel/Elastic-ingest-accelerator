@@ -16,7 +16,7 @@
 
 ## Solution Overview
 
-This guide shows how Amazon Web Services (AWS) logs can be collected into a central account in AWS and sent to Elastic. Elastic are the leading platform for search-powered solutions, and help everyone — organizations, their employees, and their customers — find what they need faster, while keeping applications running smoothly, and protecting against cyber threats.
+This guide shows how Amazon Web Services (AWS) logs can be collected into a central account in AWS and sent to Elastic. Elastic is the leading platform for search-powered solutions, and help everyone — organizations, their employees, and their customers — find what they need faster, while keeping applications running smoothly, and protecting against cyber threats.
 
 ## Architecture
 
@@ -250,6 +250,46 @@ Following diagram shows the deployment flow of the CFT in the member account.
 ![alt text](images/elastic-member-account-flow.png)
 
 ## Technical details
+
+### AWS Bootstrap Lambda
+
+AWS Lambda is a compute service that lets you run code without provisioning or managing servers. Lambda runs your code on a high-availability compute infrastructure and performs all of the administration of the compute resources, including server and operating system maintenance, capacity provisioning and automatic scaling, and logging. With Lambda, all you need to do is supply your code in one of the language runtimes that Lambda supports. For more information, refer [AWS Lambda Documentation](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html).
+
+### Elastic Bootstrap Lambda Function
+
+The primary purpose of this Elastic Bootstrap Lambda function is to configure an S3 bucket event notification for the CloudTrail Logs S3 bucket created by AWS Control Tower in the Log Archive Account. Additionally, it generates a configuration file (config.yml) and uploads it to an S3 bucket created by a CloudFormation Template (CFT) specifically designed to store the config.yml object.
+
+#### Operation of the Bootstrap Lambda Function
+
+1. The Lambda function requires the following parameters:
+
+    - SQS queue ARN’S are used to configure properties in config.yml file.
+    - S3 bucket name used for uploading the config.yml file.
+    - Name of the CloudTrail S3 bucket created by AWS Control Tower.
+    - ARN of the Elastic secret to be included in the config.yml file.
+
+1. After deploying the CloudFormation Template (CFT), required values are provided to the Bootstrap Lambda function as environment variables. The custom resource defined in the template then triggers the execution of this function.
+
+1. During execution, the Lambda function retrieves the name of the CloudTrail S3 bucket created by AWS Control Tower and the SQS queue ARN. Subsequently, it configures event notifications for the CloudTrail bucket to send notifications to the SQS queue whenever a new object is uploaded to the bucket.
+
+1. The code incorporates logic to dynamically generate the config.yml file, updating property values based on the provided SQS queue and secret passed as environment variables to the Bootstrap Lambda function.
+
+1. Refer the screenshot for the generated sample config.yml file content.
+
+    ```
+    inputs:
+    - type: "s3-sqs"
+        id: "arn:aws:sqs:us-east-1:XXXXXXXXXXXX:Elastic-SQS-ElbLogs"
+        outputs:
+        - type: "elasticsearch"
+        args:
+            cloud_id: "arn:aws:secretsmanager:us-east-1:XXXXXXXXXXXX:secret:ElasticCloudSecret-StackSet-SC-XXXXXXXXXXXX-pp-uh66tynxmmhx6-7f7d34b5-5147-4897-bbcb-52ad25757d4b-NYsdnV:ElasticCloudID"
+            api_key: "arn:aws:secretsmanager:us-east-1:XXXXXXXXXXXX:secret:ElasticCloudSecret-StackSet-SC-XXXXXXXXXXXX-pp-uh66tynxmmhx6-7f7d34b5-5147-4897-bbcb-52ad25757d4b-NYsdnV:APIKey"
+    ```
+
+Upon successful execution of the Bootstrap Lambda code, it configures event notifications for the CloudTrail logs S3 bucket, generates the config.yml file, and uploads the file to an S3 bucket.
+
+ 
 
 In the Log Archive account, the Service Catalog product will be deploying the following resources using the CFT elastic-ingestion-log-archive.yaml.
 
