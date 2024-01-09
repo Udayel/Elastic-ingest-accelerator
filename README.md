@@ -274,7 +274,7 @@ The primary purpose of this Elastic Bootstrap Lambda function is to configure an
 
 1. The code incorporates logic to dynamically generate the config.yml file, updating property values based on the provided SQS queue and secret passed as environment variables to the Bootstrap Lambda function.
 
-1. Refer the screenshot for the generated sample config.yml file content.
+1. Refer the generated sample of config.yml file content.
 
     ```
     inputs:
@@ -309,7 +309,7 @@ In the Log Archive account, the Service Catalog product will be deploying the fo
 - Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
 - The Elastic ID and the API key is encrypted using the Secret Manager.
  
-In the Member account, the Service Catalog will be deploying the following resources using the CFT elastic-buckets-kinesis-member.yaml.
+In the Member account, the Service Catalog will be deploying the following resources using the CFT elastic-ingestion-member.yaml.
 
 - S3 buckets to store the VPC flow logs, S3 access logs, CloudTrail logs, S3 Access logs, Network Firewall logs, EMR logs, WAF logs, and CloudFront. These logs will be replicated to the buckets in the log archive account.
 - Policies for the S3 buckets
