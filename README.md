@@ -22,7 +22,7 @@ This guide shows how Amazon Web Services (AWS) logs can be collected into a cent
 
 The following architecture diagram outlines high-level components involved in ingesting logs from various AWS Services to Elastic Cloud.
 
-1. Master Account: The AWS Master account will be primarily used as a deployment entry point for solution, AWS Control Tower management and to host Elastic forwarder for AWS Directory services-related logs, if enabled.
+1. Master Account: The AWS Master account will be primarily used as a deployment entry point for solution, AWS Control Tower management and to host Elastic forwarder for AWS Directory services-related logs, if you want to ingest the directory logs to elastic cloud.
 2. Log Archive Account: This account will be primarily used to store the logs in various S3 buckets through control tower integration, it will also host the primary Elastic Serverless forwarder and SQS to notify the logs from S3 buckets into Elastic Cloud.
 3. Member Account(s): One or more member accounts may contain AWS resources, sending logs to the log-archive account. Member accounts may also host the Elastic serverless forwarder for Kinesis data stream/cloud watch logs ingestion to Elastic Cloud if required.
 
@@ -30,9 +30,8 @@ The following architecture diagram outlines high-level components involved in in
 
 ## Prerequisites
 
-- You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account and deploy the CloudTrail. Please refer to the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
-- After the Service catalog is deployed, the logs of the resources mentioned below in the document will be ingested to the Elastic Cloud, please make sure you have the right configurations for these resources to ingest the logs
-- The forwarder Lambda function that creates the config.yaml file for Elastic Serverless Forwarder is written in Python, and requires a set of node modules. These required scripts and packages are zipped and uploaded in the src folder. Download the zip file **ElasticBootstrapLambdaLogArchiveAccount** from the folder log-archive-account in src and the zip file **ElasticBootstrapLambdaMemberAccount** from the folder member-account in src. Create S3 bucket in the region where you want to deploy the service catalog and upload these zip files in the bucket. The zip files need to have the following bucket policy so they can be shared with the organization and accessed by the forwarder Lambda function deployment. Please refer to the sample code below and provide the arn of the S3 bucket and the organization ID as required:
+- You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account, Audit account and in the Log Archive account it will create a central logging S3 bucket to collect CloudTrail logs & AWS Config logs from all the member accounts. Please refer to the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
+- The Elastic Bootstrap Lambda that creates the config.yaml file for Elastic Serverless Forwarder is written in Python, and requires a set of node modules. These required scripts and packages are zipped and uploaded in the src folder. Download the zip file **ElasticBootstrapLambdaLogArchiveAccount** from the folder log-archive-account in src and the zip file **ElasticBootstrapLambdaMemberAccount** from the folder member-account in src. Create S3 bucket in the region where you want to deploy the service catalog and upload these zip files in the bucket. The zip files need to have the following bucket policy so they can be shared with the organization and accessed by the forwarder Lambda function deployment. Please refer to the sample code below and provide the arn of the S3 bucket and the organization ID as required:
 
   ```
   {
@@ -58,6 +57,7 @@ The following architecture diagram outlines high-level components involved in in
   
 - If you want to deploy Elastic Serverless forwarder in Amazon VPC, then you need to create the required VPC, subnets, and route tables in the account you are deploying the Service Catalog product.
 - You must have an Elastic Cluster, Elastic Cloud ID, and Elastic API key to ingest the logs to the Elastic Cloud.
+- After the Service catalog product is launched, the logs of the resources mentioned below in the document will be ingested to the Elastic Cloud, please make sure you have the right configurations for these resources to ingest the logs. For eg: you need to have the CloudWatch log group ARN to ingest the CloudWatch logs data to Elastic cloud.
 
 ## AWS Control Tower Overview
 
