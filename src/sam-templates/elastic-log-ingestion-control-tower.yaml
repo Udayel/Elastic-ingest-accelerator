@@ -32,11 +32,13 @@ Parameters:
 
     SecurityLakeBucketArn:
       Type: String
+      Default: ""
       Description: >
         ARN of the Security lake S3 bucket present in Log Archive Account
 
     SecurityLakeSQSArn:
       Type: String
+      Default: ""
       Description: >
         ARN of the Security lake SQS
         Example: SecurityLake_us-east-1_MAIN_QUEUE_1_0
@@ -59,6 +61,12 @@ Parameters:
       Default: ""
       Description: 'Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide the value only if you want to deploy the Elastic Serverless Forwarder in the VPC'
       ConstraintDescription: 'Please enter a valid list of Subnet IDs.'
+      
+    RouteTableIds:
+      Type: CommaDelimitedList
+      Default: ""
+      Description: 'Specify the IDs of the route tables to be updated for the S3 bucket Gateway VPC Endpoint. Provide values only if deploying the Elastic serverless forwarder in a VPC.'
+      ConstraintDescription: 'Please enter valid Route Table IDs.'
       
 Metadata:
   AWS::CloudFormation::Interface:
@@ -88,6 +96,7 @@ Metadata:
       - DeployInVPC
       - VPCId
       - SubnetIds
+      - RouteTableIds
     ParameterLabels:
       ElasticCloudID:
         default: Elastic Cloud ID
@@ -96,11 +105,11 @@ Metadata:
       CloudTrailBucketName:
         default: CloudTrail Bucket Name
       CloudTrailBucketARN:
-        default: CloudTrail Bucket Arn
+        default: CloudTrail Bucket ARN
       SecurityLakeBucketArn:
-        default: Security Lake Bucket Arn
+        default: Security Lake Bucket ARN
       SecurityLakeSQSArn:
-        default: Security Lake SQS Arn
+        default: Security Lake SQS ARN
       AWSOrganizationID:
         default: AWS Organization ID
       DeployInVPC:
@@ -109,9 +118,13 @@ Metadata:
         default: VPC ID
       SubnetIds:
         default: Subnet IDs
+      RouteTableIds:
+        Default: Route Table IDs
         
 Conditions:
   ShouldDeployElasticForwarderInVPC: !Equals [!Ref DeployInVPC, "Yes"]
+  ShouldIncludeSecurityLakeSQSArn: !Not [!Equals [!Ref SecurityLakeSQSArn, ""]]
+  ShouldIncludeSecurityLakeBucketArn: !Not [!Equals [!Ref SecurityLakeBucketArn, ""]]
         
 Mappings:
   VPCServiceName:
@@ -157,49 +170,49 @@ Mappings:
       service: com.amazonaws.vpce.us-west-2.vpce-svc-0e69febae1fb91870
   PrivateHostedZoneDNSName:
     af-south-1:
-      HostedZone: vpce.af-south-1.aws.elastic-cloud.com
+      HostedZone: af-south-1.aws.found.io
     ap-east-1:
-      HostedZone: vpce.ap-east-1.aws.elastic-cloud.com
+      HostedZone: ap-east-1.aws.found.io
     ap-northeast-1:
-      HostedZone: vpce.ap-northeast-1.aws.elastic-cloud.com
+      HostedZone: ap-northeast-1.aws.found.io
     ap-northeast-2:
-      HostedZone: vpce.ap-northeast-2.aws.elastic-cloud.com
+      HostedZone: ap-northeast-2.aws.found.io
     ap-south-1:
-      HostedZone: vpce.ap-south-1.aws.elastic-cloud.com
+      HostedZone: ap-south-1.aws.found.io
     ap-southeast-1:
-      HostedZone: vpce.ap-southeast-1.aws.elastic-cloud.com
+      HostedZone: ap-southeast-1.aws.found.io
     ap-southeast-2:
-      HostedZone: vpce.ap-southeast-2.aws.elastic-cloud.com
+      HostedZone: ap-southeast-2.aws.found.io
     ca-central-1:
-      HostedZone: vpce.ca-central-1.aws.elastic-cloud.com
+      HostedZone: ca-central-1.aws.found.io
     eu-central-1:
-      HostedZone: vpce.eu-central-1.aws.elastic-cloud.com
+      HostedZone: eu-central-1.aws.found.io
     eu-south-1:
-      HostedZone: vpce.eu-south-1.aws.elastic-cloud.com
+      HostedZone: eu-south-1.aws.found.io
     eu-north-1:
-      HostedZone: vpce.eu-north-1.aws.elastic-cloud.com
+      HostedZone: eu-north-1.aws.found.io
     eu-west-1:
-      HostedZone: vpce.eu-west-1.aws.elastic-cloud.com
+      HostedZone: eu-west-1.aws.found.io
     eu-west-2:
-      HostedZone: vpce.eu-west-2.aws.elastic-cloud.com
+      HostedZone: eu-west-2.aws.found.io
     eu-west-3:
-      HostedZone: vpce.eu-west-3.aws.elastic-cloud.com
+      HostedZone: eu-west-3.aws.found.io
     me-south-1:
-      HostedZone: vpce.me-south-1.aws.elastic-cloud.com
+      HostedZone: me-south-1.aws.found.io
     sa-east-1:
-      HostedZone: vpce.sa-east-1.aws.elastic-cloud.com
+      HostedZone: sa-east-1.aws.found.io
     us-east-1: 
-      HostedZone: vpce.us-east-1.aws.elastic-cloud.com
+      HostedZone: us-east-1.aws.found.io
     us-east-2:
-      HostedZone: vpce.us-east-2.aws.elastic-cloud.com
+      HostedZone: us-east-2.aws.found.io
     us-west-1:
-      HostedZone: vpce.us-west-1.aws.elastic-cloud.com
+      HostedZone: us-west-1.aws.found.io
     us-west-2:
-      HostedZone: vpce.us-west-2.aws.elastic-cloud.com
+      HostedZone: us-west-2.aws.found.io
       
 Resources:
   ElasticSecret:
-    Type: AWS::SecretsManager::Secret
+    Type: AWS::SecretsManager::Secret       #AWS Secret Manager to store Elastic Cloud ID & API Key encrypted with KMS 
     DependsOn: ElasticSSMSecretEncryptionKey
     Properties:
       Name: !Sub "ElasticCloudSecret-${AWS::StackName}"
@@ -210,7 +223,7 @@ Resources:
           "APIKey": "${ElasticAPIKey}"
         }
         
-  ElasticCloudTrailSQS:       #Queue for Elastic Load Balancer logs bucket
+  ElasticCloudTrailSQS:       #SQS queue for the central CloudTrail logs bucket and receive notifications upon the addition of new objects.
     Type: AWS::SQS::Queue
     Properties:
       QueueName: Elastic-SQS-CloudTrail-Config
@@ -218,7 +231,7 @@ Resources:
       KmsMasterKeyId: !Ref ElasticSQSKMSKey
       KmsDataKeyReusePeriodSeconds: 1800
       
-  ElasticCloudTrailSQSPolicy:     #Queue policy for ElbSQS queue
+  ElasticCloudTrailSQSPolicy:     #Defines the permissions for the SQS queue created for Cloudtrail logs bucket.
     Type: AWS::SQS::QueuePolicy
     Properties:
       Queues:
@@ -239,7 +252,7 @@ Resources:
                 aws:SourceArn: 
                   - !Ref CloudTrailBucketARN
 
-  ElbSQS:       #Queue for Elastic Load Balancer logs bucket
+  ElbSQS:       #SQS queue for the central Elastic Load Balancer logs bucket and receive notifications upon the addition of new objects.
     Type: AWS::SQS::Queue
     Properties:
       QueueName: Elastic-SQS-ElbLogs
@@ -855,32 +868,58 @@ Resources:
           - ElasticSQSKMSKey: !GetAtt ElasticSQSKMSKey.Arn
             ElasticSSMSecretEncryptionKey: !GetAtt ElasticSSMSecretEncryptionKey.Arn
         ElasticServerlessForwarderSQSEvents: ""   
-        ElasticServerlessForwarderS3SQSEvents: !Sub
-          - '${ElbSQSArn},${ElasticS3SQSArn},${VPCFlowLogsElasticSQSArn},${ElasticCloudTrailSQSArn},${ElasticWafSQSArn},${EmrSQSArn},${NfSQSArn},${ElasticCloudfrontSQSArn},${SecurityLakeSQSArn},${ElasticGuardDutySQSArn}'
-          - ElbSQSArn: !GetAtt ElbSQS.Arn
-            ElasticS3SQSArn: !GetAtt ElasticS3SQS.Arn
-            VPCFlowLogsElasticSQSArn: !GetAtt VPCFlowLogsElasticSQS.Arn
-            ElasticCloudTrailSQSArn: !GetAtt ElasticCloudTrailSQS.Arn
-            ElasticWafSQSArn: !GetAtt ElasticWafSQS.Arn
-            EmrSQSArn: !GetAtt EmrSQS.Arn
-            NfSQSArn: !GetAtt NfSQS.Arn
-            ElasticCloudfrontSQSArn: !GetAtt ElasticCloudfrontSQS.Arn
-            SecurityLakeSQSArn: !Ref SecurityLakeSQSArn
-            ElasticGuardDutySQSArn: !GetAtt ElasticGuardDutySQS.Arn
+        ElasticServerlessForwarderS3SQSEvents: !If
+          - ShouldIncludeSecurityLakeSQSArn
+          - !Sub
+              - '${ElbSQSArn},${ElasticS3SQSArn},${VPCFlowLogsElasticSQSArn},${ElasticCloudTrailSQSArn},${ElasticWafSQSArn},${EmrSQSArn},${NfSQSArn},${ElasticCloudfrontSQSArn},${SecurityLakeSQSArn},${ElasticGuardDutySQSArn}'
+              - ElbSQSArn: !GetAtt ElbSQS.Arn
+                ElasticS3SQSArn: !GetAtt ElasticS3SQS.Arn
+                VPCFlowLogsElasticSQSArn: !GetAtt VPCFlowLogsElasticSQS.Arn
+                ElasticCloudTrailSQSArn: !GetAtt ElasticCloudTrailSQS.Arn
+                ElasticWafSQSArn: !GetAtt ElasticWafSQS.Arn
+                EmrSQSArn: !GetAtt EmrSQS.Arn
+                NfSQSArn: !GetAtt NfSQS.Arn
+                ElasticCloudfrontSQSArn: !GetAtt ElasticCloudfrontSQS.Arn
+                SecurityLakeSQSArn: !Ref SecurityLakeSQSArn
+                ElasticGuardDutySQSArn: !GetAtt ElasticGuardDutySQS.Arn
+          - !Sub
+              - '${ElbSQSArn},${ElasticS3SQSArn},${VPCFlowLogsElasticSQSArn},${ElasticCloudTrailSQSArn},${ElasticWafSQSArn},${EmrSQSArn},${NfSQSArn},${ElasticCloudfrontSQSArn},${ElasticGuardDutySQSArn}'
+              - ElbSQSArn: !GetAtt ElbSQS.Arn
+                ElasticS3SQSArn: !GetAtt ElasticS3SQS.Arn
+                VPCFlowLogsElasticSQSArn: !GetAtt VPCFlowLogsElasticSQS.Arn
+                ElasticCloudTrailSQSArn: !GetAtt ElasticCloudTrailSQS.Arn
+                ElasticWafSQSArn: !GetAtt ElasticWafSQS.Arn
+                EmrSQSArn: !GetAtt EmrSQS.Arn
+                NfSQSArn: !GetAtt NfSQS.Arn
+                ElasticCloudfrontSQSArn: !GetAtt ElasticCloudfrontSQS.Arn
+                ElasticGuardDutySQSArn: !GetAtt ElasticGuardDutySQS.Arn
         ElasticServerlessForwarderKinesisEvents: "" 
         ElasticServerlessForwarderCloudWatchLogsEvents: ""
-        ElasticServerlessForwarderS3Buckets: !Sub
-          - '${ElbCentralLoggingBucketArn},${S3AccessLoggingBucketArn},${VPCFlowLoggingBucketArn},${CloudTrailBucketARN},${WafCentralLoggingBucketArn},${EmrCentralLoggingBucketArn},${NfCentralLoggingBucketArn},${CloudfrontLoggingBucketArn},${SecurityLakeBucketArn},${GuardDutyArchiveLoggingBucketArn}'
-          - ElbCentralLoggingBucketArn: !GetAtt ElbCentralLoggingBucket.Arn
-            S3AccessLoggingBucketArn: !GetAtt S3AccessLoggingBucket.Arn
-            VPCFlowLoggingBucketArn: !GetAtt VPCFlowLoggingBucket.Arn
-            CloudTrailBucketArn: !Ref CloudTrailBucketARN
-            WafCentralLoggingBucketArn: !GetAtt WafCentralLoggingBucket.Arn
-            EmrCentralLoggingBucketArn: !GetAtt EmrCentralLoggingBucket.Arn
-            NfCentralLoggingBucketArn: !GetAtt NfCentralLoggingBucket.Arn
-            CloudfrontLoggingBucketArn: !GetAtt CloudfrontLoggingBucket.Arn
-            SecurityLakeBucketArn: !Ref SecurityLakeBucketArn
-            GuardDutyArchiveLoggingBucketArn: !GetAtt GuardDutyArchiveLoggingBucket.Arn
+        ElasticServerlessForwarderS3Buckets: !If
+          - ShouldIncludeSecurityLakeBucketArn
+          - !Sub
+              - '${ElbCentralLoggingBucketArn},${S3AccessLoggingBucketArn},${VPCFlowLoggingBucketArn},${CloudTrailBucketARN},${WafCentralLoggingBucketArn},${EmrCentralLoggingBucketArn},${NfCentralLoggingBucketArn},${CloudfrontLoggingBucketArn},${SecurityLakeBucketArn},${GuardDutyArchiveLoggingBucketArn}'
+              - ElbCentralLoggingBucketArn: !GetAtt ElbCentralLoggingBucket.Arn
+                S3AccessLoggingBucketArn: !GetAtt S3AccessLoggingBucket.Arn
+                VPCFlowLoggingBucketArn: !GetAtt VPCFlowLoggingBucket.Arn
+                CloudTrailBucketArn: !Ref CloudTrailBucketARN
+                WafCentralLoggingBucketArn: !GetAtt WafCentralLoggingBucket.Arn
+                EmrCentralLoggingBucketArn: !GetAtt EmrCentralLoggingBucket.Arn
+                NfCentralLoggingBucketArn: !GetAtt NfCentralLoggingBucket.Arn
+                CloudfrontLoggingBucketArn: !GetAtt CloudfrontLoggingBucket.Arn
+                SecurityLakeBucketArn: !Ref SecurityLakeBucketArn
+                GuardDutyArchiveLoggingBucketArn: !GetAtt GuardDutyArchiveLoggingBucket.Arn
+          - !Sub
+              - '${ElbCentralLoggingBucketArn},${S3AccessLoggingBucketArn},${VPCFlowLoggingBucketArn},${CloudTrailBucketARN},${WafCentralLoggingBucketArn},${EmrCentralLoggingBucketArn},${NfCentralLoggingBucketArn},${CloudfrontLoggingBucketArn},${GuardDutyArchiveLoggingBucketArn}'
+              - ElbCentralLoggingBucketArn: !GetAtt ElbCentralLoggingBucket.Arn
+                S3AccessLoggingBucketArn: !GetAtt S3AccessLoggingBucket.Arn
+                VPCFlowLoggingBucketArn: !GetAtt VPCFlowLoggingBucket.Arn
+                CloudTrailBucketArn: !Ref CloudTrailBucketARN
+                WafCentralLoggingBucketArn: !GetAtt WafCentralLoggingBucket.Arn
+                EmrCentralLoggingBucketArn: !GetAtt EmrCentralLoggingBucket.Arn
+                NfCentralLoggingBucketArn: !GetAtt NfCentralLoggingBucket.Arn
+                CloudfrontLoggingBucketArn: !GetAtt CloudfrontLoggingBucket.Arn
+                GuardDutyArchiveLoggingBucketArn: !GetAtt GuardDutyArchiveLoggingBucket.Arn
         ElasticServerlessForwarderSecurityGroups: !If
             - ShouldDeployElasticForwarderInVPC
             - !GetAtt ElasticForwarderSecurityGroup.GroupId
@@ -1011,7 +1050,7 @@ Resources:
                 's3:x-amz-server-side-encryption': 'aws:kms'
                 
   ElasticBootstrapLambdaForConfigFile:
-    Type: 'AWS::Lambda::Function'
+    Type: 'AWS::Serverless::Function'
     DependsOn:
     - S3ConfigFileBucketPolicy
     Properties:
@@ -1021,24 +1060,37 @@ Resources:
       Runtime: python3.11
       Timeout: 300
       MemorySize: 128
-      Code:
-        S3Bucket: bootstrap-lambda-code
-        S3Key: LogArchive-code/Elastic-Log-Archive-BootstrapLambdaCode/ElasticBootstrapLambdaLogArchiveAccount.zip
+      CodeUri:
+        Bucket: bootstrap-lambda-code
+        Key: LogArchive-code/Elastic-Log-Archive-BootstrapLambdaCode/ElasticBootstrapLambdaLogArchiveAccount.zip
       Environment:
         Variables:
           ELASTIC_SECRET_ARN: !Ref ElasticSecret
-          SQS_QUEUE_ARN: !Sub
-            - '${ElbSQSArn},${ElasticS3SQSArn},${VPCFlowLogsElasticSQSArn},${ElasticCloudTrailSQSArn},${ElasticWafSQSArn},${EmrSQSArn},${NfSQSArn},${ElasticCloudfrontSQSArn},${SecurityLakeSQSArn},${ElasticGuardDutySQSArn}'
-            - ElbSQSArn: !GetAtt ElbSQS.Arn
-              ElasticS3SQSArn: !GetAtt ElasticS3SQS.Arn
-              VPCFlowLogsElasticSQSArn: !GetAtt VPCFlowLogsElasticSQS.Arn
-              ElasticCloudTrailSQSArn: !GetAtt ElasticCloudTrailSQS.Arn
-              ElasticWafSQSArn: !GetAtt ElasticWafSQS.Arn
-              EmrSQSArn: !GetAtt EmrSQS.Arn
-              NfSQSArn: !GetAtt NfSQS.Arn
-              ElasticCloudfrontSQSArn: !GetAtt ElasticCloudfrontSQS.Arn
-              SecurityLakeSQSArn: !Ref SecurityLakeSQSArn
-              ElasticGuardDutySQSArn: !GetAtt ElasticGuardDutySQS.Arn
+          SQS_QUEUE_ARN: !If
+          - ShouldIncludeSecurityLakeSQSArn
+          - !Sub
+              - '${ElbSQSArn},${ElasticS3SQSArn},${VPCFlowLogsElasticSQSArn},${ElasticCloudTrailSQSArn},${ElasticWafSQSArn},${EmrSQSArn},${NfSQSArn},${ElasticCloudfrontSQSArn},${SecurityLakeSQSArn},${ElasticGuardDutySQSArn}'
+              - ElbSQSArn: !GetAtt ElbSQS.Arn
+                ElasticS3SQSArn: !GetAtt ElasticS3SQS.Arn
+                VPCFlowLogsElasticSQSArn: !GetAtt VPCFlowLogsElasticSQS.Arn
+                ElasticCloudTrailSQSArn: !GetAtt ElasticCloudTrailSQS.Arn
+                ElasticWafSQSArn: !GetAtt ElasticWafSQS.Arn
+                EmrSQSArn: !GetAtt EmrSQS.Arn
+                NfSQSArn: !GetAtt NfSQS.Arn
+                ElasticCloudfrontSQSArn: !GetAtt ElasticCloudfrontSQS.Arn
+                SecurityLakeSQSArn: !Ref SecurityLakeSQSArn
+                ElasticGuardDutySQSArn: !GetAtt ElasticGuardDutySQS.Arn
+          - !Sub
+              - '${ElbSQSArn},${ElasticS3SQSArn},${VPCFlowLogsElasticSQSArn},${ElasticCloudTrailSQSArn},${ElasticWafSQSArn},${EmrSQSArn},${NfSQSArn},${ElasticCloudfrontSQSArn},${ElasticGuardDutySQSArn}'
+              - ElbSQSArn: !GetAtt ElbSQS.Arn
+                ElasticS3SQSArn: !GetAtt ElasticS3SQS.Arn
+                VPCFlowLogsElasticSQSArn: !GetAtt VPCFlowLogsElasticSQS.Arn
+                ElasticCloudTrailSQSArn: !GetAtt ElasticCloudTrailSQS.Arn
+                ElasticWafSQSArn: !GetAtt ElasticWafSQS.Arn
+                EmrSQSArn: !GetAtt EmrSQS.Arn
+                NfSQSArn: !GetAtt NfSQS.Arn
+                ElasticCloudfrontSQSArn: !GetAtt ElasticCloudfrontSQS.Arn
+                ElasticGuardDutySQSArn: !GetAtt ElasticGuardDutySQS.Arn
           S3_BUCKET_NAME: !Ref S3ConfigFileBucket
           CloudTrail_S3_BUCKET_NAME: !Ref CloudTrailBucketName
           CloudTrail_SQS_QUEUE_ARN: !GetAtt ElasticCloudTrailSQS.Arn
@@ -1070,6 +1122,7 @@ Resources:
           - Effect: "Allow"
             Action:
             - "s3:PutObject"
+            - "s3:DeleteObject"
             Resource: "*" 
       Roles: 
         - Ref: "ElasticBootstrapLambdaExecutionRole"
@@ -1207,11 +1260,7 @@ Resources:
             - "route53:CreateHostedZone"
             - "route53:ChangeResourceRecordSets"
             - "route53:GetChange"
-            - "lambda:InvokeFunction"
             - "ec2:DescribeVpcs"
-            - "cloudformation:SignalResource"
-            - "cloudformation:DescribeStackResources"
-            - "cloudformation:DescribeStackEvents"
             - "s3:*"
             Resource: "*" 
       Roles: 
@@ -1256,14 +1305,13 @@ Resources:
           CidrIp: 0.0.0.0/0
       
   ElasticServerlessBootstrapFunction:
-    Type: AWS::Lambda::Function
+    Type: AWS::Serverless::Function
     Condition: ShouldDeployElasticForwarderInVPC
     Properties:
       Handler: index.lambda_handler
       Role: !GetAtt BootstrapLambdaExecutionRole.Arn
       Runtime: python3.8
-      Code:
-        ZipFile: |
+      InlineCode: |
             import boto3
             import os
             import uuid
@@ -1365,7 +1413,7 @@ Resources:
                                     {
                                         'Action': 'CREATE',
                                         'ResourceRecordSet': {
-                                            'Name': f'*.vpce.{region}.aws.elastic-cloud.com',
+                                            'Name': f'*.{region}.aws.found.io',
                                             'Type': 'CNAME',
                                             'TTL': 60,
                                             'ResourceRecords': [
@@ -1386,14 +1434,67 @@ Resources:
                 except Exception as e:
                     print(f"Error creating CNAME record: {e}")
                     raise
+                    
+            def create_s3_gateway_endpoint(vpc_id, route_table_id, region):
+                ec2_client = boto3.client('ec2', region_name=region)
+
+                response = ec2_client.create_vpc_endpoint(
+                    VpcId=vpc_id,
+                    ServiceName=f'com.amazonaws.{region}.s3',
+                    VpcEndpointType='Gateway',
+                    RouteTableIds=route_table_id
+                )
+
+                return response
+
+            def create_sqs_interface_endpoint(vpc_id, subnet_ids, security_group_id, region):
+                client = boto3.client('ec2', region_name=region)
+
+                response = client.create_vpc_endpoint(
+                    VpcId=vpc_id,
+                    ServiceName=f'com.amazonaws.{region}.sqs',
+                    VpcEndpointType='Interface',
+                    SubnetIds=subnet_ids,
+                    SecurityGroupIds=[security_group_id]
+                )
+
+                return response
+
+            def create_secretmanager_interface_endpoint(vpc_id, subnet_ids, security_group_id, region):
+                client = boto3.client('ec2', region_name=region)
+
+                response = client.create_vpc_endpoint(
+                    VpcId=vpc_id,
+                    ServiceName=f'com.amazonaws.{region}.secretsmanager',
+                    VpcEndpointType='Interface',
+                    SubnetIds=subnet_ids,
+                    SecurityGroupIds=[security_group_id]
+                )
+
+                return response
+
+            def create_kms_interface_endpoint(vpc_id, subnet_ids, security_group_id, region):
+                client = boto3.client('ec2', region_name=region)
+
+                response = client.create_vpc_endpoint(
+                    VpcId=vpc_id,
+                    ServiceName=f'com.amazonaws.{region}.kms',
+                    VpcEndpointType='Interface',
+                    SubnetIds=subnet_ids,
+                    SecurityGroupIds=[security_group_id]
+                )
+
+                return response
 
             def lambda_handler(event, context):
-                vpc_id = os.environ.get('VPC_ID')
-                subnet_ids = os.environ.get('SUBNET_IDS').split(',')
-                region = os.environ.get('REGION')
-                service_name = os.environ.get('ServiceName')
-                private_hosted_zone = os.environ.get('Private_Hosted_Zone')
+                vpc_id = os.getenv('VPC_ID')
+                subnet_ids = os.getenv('SUBNET_IDS').split(',')
+                route_table_id = os.getenv('ROUTE_TABLE_ID').split(',')
+                region = os.getenv('REGION')
+                service_name = os.getenv('ServiceName')
+                private_hosted_zone = os.getenv('Private_Hosted_Zone')
                 responseData = {}
+           
                 
                 try:
                     security_group_id = create_security_group(vpc_id, 'Elastic Proxy SecurityGroup')
@@ -1404,13 +1505,34 @@ Resources:
                     if dns_name is not None:
                         create_cname_record(hosted_zone_id, region, dns_name)
                     else:
-                        raise ValueError("VpcEndpoint DNS entry is None.")  
+                        raise ValueError("VpcEndpoint DNS entry is None.")
+
+                    # Create S3 Gateway VPC endpoint
+                    s3_response = create_s3_gateway_endpoint(vpc_id, route_table_id, region)
+                    print("S3 Gateway VPC Endpoint created successfully:")
+                    print(s3_response)
+
+                    # Create SQS Interface VPC endpoint
+                    sqs_response = create_sqs_interface_endpoint(vpc_id, subnet_ids, security_group_id, region)
+                    print("SQS Interface VPC Endpoint created successfully:")
+                    print(sqs_response)
+
+                    # Create Secret Manager Interface VPC endpoint
+                    ssm_response = create_secretmanager_interface_endpoint(vpc_id, subnet_ids, security_group_id, region)
+                    print("Secret Manager Interface VPC Endpoint created successfully:")
+                    print(ssm_response)
+
+                    # Create Key Management service Interface VPC endpoint
+                    kms_response = create_kms_interface_endpoint(vpc_id, subnet_ids, security_group_id, region)
+                    print("Key Management Service Interface VPC Endpoint created successfully:")
+                    print(kms_response)
+
                     
                     cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)
                 except Exception as e:
                     # Send a failure response with the error reason
                     cfnresponse.send(event, context, cfnresponse.FAILED, responseData, reason=str(e))
-      Timeout: 300
+      Timeout: 900
       Environment:
         Variables:
           VPC_ID: !Ref VPCId
@@ -1425,7 +1547,8 @@ Resources:
               - PrivateHostedZoneDNSName
               - !Ref 'AWS::Region'
               - HostedZone
-          REGION: !Sub ${AWS::Region}           
+          REGION: !Sub ${AWS::Region}
+          ROUTE_TABLE_ID: !Join [',', !Ref RouteTableIds]
     
   TriggersBootstrapLambda:
     Type: 'Custom::RunCode'
