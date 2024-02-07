@@ -16,121 +16,90 @@
 
 ## Solution Overview
 
-This guide shows how Amazon Web Services (AWS) logs can be collected into a central account in AWS and sent to Elastic. Elastic is the leading platform for search-powered solutions, and help everyone — organizations, their employees, and their customers — find what they need faster, while keeping applications running smoothly, and protecting against cyber threats.
+Elastic is the leading platform for search-powered solutions, and help everyone — organizations, their employees, and their customers — find what they need faster, while keeping applications running smoothly, and protecting against cyber threats. Amazon Web Services (AWS) logs are collected into a central account (Log Archive account created by the AWS control Tower) in AWS and sent to Elastic Cloud. Log Ingestion to the Elastic cloud is done using the Elastic Serverless Forwarder. 
+
+1. **Setting up the AWS Control Tower**: The first step is to set up the AWS Control Tower in your AWS account. This service will automatically set up a Log Archive account where all your AWS logs will be stored.
+1. **Configuring AWS CloudTrail and AWS Config**: AWS CloudTrail is a service that records AWS API calls for your account and delivers log files to the Log Archive account. Similarly, AWS Config is a service that enables you to assess, audit, and evaluate the configurations of your AWS resources. You need to enable both these services to send logs to the Log Archive account.
+1. **Setting up Elastic Cloud**: Next, you need to set up an Elastic Cloud account where the logs will eventually be sent. This platform will allow you to analyse and visualize the logs.
+1. **Configuring Elastic Serverless Forwarder**: This is an AWS Lambda function that will ship your logs from AWS to Elastic Cloud. You need to configure this function with the necessary permissions and environment variables.
+1. **Deploying the Application from the Serverless Application repository**: Finally, you need to deploy the solution from the Serverless Application repository in your AWS account.  This will create the necessary resources such as S3 bucket and Kinesis Data Stream, and also deploy the Elastic Serverless Forwarder. Once the application is deployed in Log Archive account and member account, check if the logs appear in Elastic Cloud.
+
+This process will ensure that all your AWS logs are collected in a central place and can be easily analysed and visualized using Elastic Cloud.
 
 ## Architecture
 
 The following architecture diagram outlines high-level components involved in ingesting logs from various AWS Services to Elastic Cloud.
 
-1. Master Account: The AWS Master account will be primarily used as a deployment entry point for solution, AWS Control Tower management and to host Elastic forwarder for AWS Directory services-related logs, if you want to ingest the directory logs to elastic cloud.
-2. Log Archive Account: This account will be primarily used to store the logs in various S3 buckets through control tower integration, it will also host the primary Elastic Serverless forwarder and SQS to notify the logs from S3 buckets into Elastic Cloud.
-3. Member Account(s): One or more member accounts may contain AWS resources, sending logs to the log-archive account. Member accounts may also host the Elastic serverless forwarder for Kinesis data stream/cloud watch logs ingestion to Elastic Cloud if required.
+1. **Master Account**: This is essentially the control center of the entire operation. It's where the AWS Control Tower is managed and the main point for deploying the solution. If you want to ingest directory logs to the Elastic Cloud, the Elastic Forwarder for AWS Directory services-related logs will be hosted here.
+1. **Log Archive Account**: This account serves as the primary storage for logs collected from various AWS services. These logs are stored in different S3 buckets through AWS Control Tower integration. Moreover, it's where the primary Elastic Serverless Forwarder and an SQS (Simple Queue Service) are hosted. The SQS is used to notify the logs from S3 buckets into the Elastic Cloud.
+1. **Member Account(s)**: These are the account(s) that host the actual AWS resources which send logs to the Log Archive account. If required, these accounts can also host the Elastic Serverless Forwarder for Kinesis Data Stream/CloudWatch logs ingestion to the Elastic Cloud. To simplify this process and reduce management overhead, AWS users can now leverage the Amazon Kinesis Firehose Delivery Stream to ingest logs into Elastic Cloud in AWS in real time and view them in the Elastic Cloud.
+
+This architecture ensures that logs from various AWS services are efficiently collected in a central place (Log Archive Account) and then sent to the Elastic Cloud for analysis and visualization.
 
 ![alt text](images/elastic-arch.png)
 
 ## Prerequisites
 
-- You need to set up the Control Tower in the AWS master account. This will set up the Log Archive account, Audit account and in the Log Archive account it will create a central logging S3 bucket to collect CloudTrail logs & AWS Config logs from all the member accounts. Please refer to the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
-- The Elastic Bootstrap Lambda that creates the config.yaml file for Elastic Serverless Forwarder is written in Python, and requires a set of node modules. These required scripts and packages are zipped and uploaded in the src folder. Download the zip file **ElasticBootstrapLambdaLogArchiveAccount** from the folder log-archive-account in src and the zip file **ElasticBootstrapLambdaMemberAccount** from the folder member-account in src. Create S3 bucket in the region where you want to deploy the service catalog and upload these zip files in the bucket. The zip files need to have the following bucket policy so they can be shared with the organization and accessed by the forwarder Lambda function deployment. Please refer to the sample code below and provide the arn of the S3 bucket and the organization ID as required:
+1. **Set up AWS Control Tower in the Master Account:**
+    - This step involves setting up a multi-account environment using AWS Control Tower, which will automatically create a Log Archive account and an Audit account. The Log Archive account will have a central S3 bucket configured to collect AWS CloudTrail and AWS Config logs from all member accounts. You can find more information in the [AWS Control Tower Documentation](https://docs.aws.amazon.com/controltower/latest/userguide/what-is-control-tower.html) and [Getting started with AWS Control Tower](https://docs.aws.amazon.com/controltower/latest/userguide/getting-started-with-control-tower.html).
+1. **Prepare the Networking Infrastructure (if deploying in VPC):**
+    - If you plan to deploy the Elastic Serverless forwarder within an Amazon VPC, you'll need to have a VPC, subnets, and route tables created in the Log Archive account and all member accounts where the solution will be deployed.
+1. **Set up an Elastic Cloud Account and Deploy a Stack on AWS:**
+    - You must have an active account on Elastic Cloud and a deployed Elastic Stack on AWS. The deployment instructions can be found on Elastic's website [here](https://www.elastic.co/guide/en/elastic-stack/current/installing-elastic-stack.html). Ensure you have an Elastic Cluster deployed and note down your Elastic Cloud ID and Elastic API key, which are necessary for log ingestion.
+    - Additionally, keep your AWS Organization ID and the Log Archive account's AWS account ID readily available.
+1. **Ensure Adequate AWS Permissions:**
+    - The AWS account you use must have the necessary permissions to pull data from various AWS services. The specific permissions required will be detailed in the [documentation](https://docs.elastic.co/en/integrations/aws#aws-permissions) provided by Elastic.
+1. **Configure Log Ingestion Sources:**
+    - Prior to launching the solution from the Serverless Application Repository, make sure you have the correct configurations for the AWS resources from which logs will be ingested. This includes having the ARNs (Amazon Resource Names) for the respective resources:
+        - **AWS CloudTrail logs:** CloudTrail Bucket Name and Bucket ARN
+        - **Amazon Security Lake logs:** Security Lake Bucket ARN and SQS ARN
+        - **AWS Kinesis Data Stream:** Kinesis Data Stream ARNs
+        - **AWS CloudWatch logs:** CloudWatch Log Group ARNs
 
-  ```
-  {
-     "Version": "2012-10-17",
-     "Statement": [
-     {
-         "Sid": "AllowGetObject",
-         "Effect": "Allow",
-         "Principal": {
-             "AWS": "*"
-         },
-         "Action": "s3:GetObject",
-         "Resource": "arn:aws:s3::: s3-bucket-name/*",
-         "Condition": {
-             "StringEquals": {
-                 "aws:PrincipalOrgID": "org-id "
-             }
-         }
-      }
-     ]
-  }
-  ```
-  
-- If you want to deploy Elastic Serverless forwarder in Amazon VPC, then you need to create the required VPC, subnets, and route tables in the account you are deploying the Service Catalog product.
-- You must have an Elastic Cluster, Elastic Cloud ID, and Elastic API key to ingest the logs to the Elastic Cloud.
-- After the Service catalog product is launched, the logs of the resources mentioned below in the document will be ingested to the Elastic Cloud, please make sure you have the right configurations for these resources to ingest the logs. For eg: you need to have the CloudWatch log group ARN to ingest the CloudWatch logs data to Elastic cloud.
+Once these prerequisites are met, you can proceed with launching the application from the Serverless Application Repository, and the logs will be ingested into the Elastic Cloud.
+Please ensure you review and follow any additional guidelines provided by the documentation for the services you are using, as this will help avoid common pitfalls and ensure a smoother setup process.
+
 
 ## AWS Control Tower Overview
 
-AWS Control Tower simplifies the process of setting up and governing a secure, multi-account AWS environment based on AWS best practices. It is particularly useful for organizations that require a scalable and standardized approach to managing multiple AWS accounts.
+AWS Control Tower is a managed service that automates the setup of a baseline environment, or landing zone, in AWS and simplifies the governance of multiple AWS accounts within an organization. The key features and components are essential for ensuring that the environment is secure, well-managed, and adheres to best practices.
 
-### Key features and components of AWS Control Tower include:
+To summarize and expand on the key aspects of AWS Control Tower:
 
-#### AWS Landing Zone:
+1. **AWS Landing Zone**: A pre-configured setup that includes a multi-account environment with best practice blueprints. It lays the groundwork for a scalable, secure AWS environment. For the latest and more information, refer to the [AWS Landing Zone](https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-aws-environment/understanding-landing-zones.html).
 
-- The Landing Zone is the foundation of the multi-account AWS environment created by AWS Control Tower.
-- It includes a set of best-practice blueprints and guidelines for setting up a secure, well-architected environment.
 
-For the latest and more information, refer to the [AWS Landing Zone](https://docs.aws.amazon.com/prescriptive-guidance/latest/migration-aws-environment/understanding-landing-zones.html).
+1. **Account Vending**: This feature automates the creation of new AWS accounts with predefined templates, ensuring they comply with the organization's policies and best practices. For the latest and more information, to refer to the [Account Factory](https://docs.aws.amazon.com/controltower/latest/userguide/account-factory.html).
 
-#### Account Vending:
 
-- AWS Control Tower automates the creation of new AWS accounts using predefined account blueprints.
-- It ensures that new accounts adhere to organizational policies and best practices.
+1. **Multi-account Architecture**: AWS Control Tower facilitates the management of multiple AWS accounts, improving security and resource isolation. It includes a master (management) account and allows for the creation of member accounts. AWS Control Tower creates Log Archive and Audit Account which plays a crucial role in maintaining visibility and compliance across the AWS environment. For the latest and more information, to refer to the [Multi Account Setup](https://docs.aws.amazon.com/controltower/latest/userguide/aws-multi-account-landing-zone.html).
 
-For the latest and more information, to refer to the [Account Factory](https://docs.aws.amazon.com/controltower/latest/userguide/account-factory.html).
 
-#### Multi-account Architecture:
+1. **Guardrails**: These are high-level policy rules that enforce governance and compliance by managing available AWS service actions across the organization. For the latest and more information, to refer to the [Controls](https://docs.aws.amazon.com/wellarchitected/latest/management-and-governance-guide/controls.html).
 
-- It enables the creation and management of a multi-account structure, which is recommended for security and resource isolation.
-- AWS Control Tower creates Log Archive and Audit Account which plays a crucial role in maintaining visibility and compliance across the AWS environment.
-- The multi-account setup includes a master account and separate member accounts.
 
-For the latest and more information, to refer to the [Multi Account Setup](https://docs.aws.amazon.com/controltower/latest/userguide/aws-multi-account-landing-zone.html).
+1. **Service Control Policies (SCPs)**: SCPs provide centralized control over the maximum available permissions for all accounts in your organization, allowing you to manage permissions across accounts. For the latest and more information, to refer to the [SCPs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html).
 
-#### Guardrails:
+1. **Audit and Monitoring**: AWS Control Tower offers built-in logging and monitoring capabilities to track user actions and resource changes across your AWS environment, which is crucial for security and compliance. For the latest and more information, to refer to the [Logging & Monitoring](https://docs.aws.amazon.com/controltower/latest/userguide/logging-and-monitoring.html).
 
-- Guardrails are a set of predefined policies that are enforced automatically to ensure compliance with security and operational best practices.
-- AWS Control Tower implements guardrails to help prevent policy violations in member accounts.
+1. **Continuous Improvement**: The service is designed to evolve with your organization's needs, allowing you to update account templates and policies as requirements change.
 
-For the latest and more information, to refer to the [Controls](https://docs.aws.amazon.com/wellarchitected/latest/management-and-governance-guide/controls.html).
+1. **Integration with AWS Organizations**: AWS Control Tower is built on top of AWS Organizations, providing policy-based management for multiple AWS accounts. For the latest and more information, to refer to the [AWS Organization](https://docs.aws.amazon.com/organizations/latest/userguide/services-that-can-integrate-CTower.html).
 
-#### Service Control Policies (SCPs):
+1. **Log Archive Account**: A centralized account dedicated to storing logs from all accounts in the AWS environment, facilitating security analysis and compliance auditing.
 
-- SCPs are used to set fine-grained permissions on AWS accounts within the organization.
-- SCPs can be used to control access to AWS services and resources, ensuring compliance with organizational policies.
 
-For the latest and more information, to refer to the [SCPs](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html).
+1. **Audit Account**: A centralized account where continuous compliance checks, security assessments, and auditing are performed. It's an important component for governance and risk management.
 
-#### Audit and Monitoring:
+For anyone planning to use AWS Control Tower, it's important to stay up-to-date with the latest documentation and features. AWS continuously updates its services to improve functionality and security, so checking the official AWS documentation is always recommended for the latest information and best practices.
 
-- AWS Control Tower provides visibility into the compliance status of member accounts.
-- It involves monitoring the performance and health of resources, as well as conducting audits to ensure compliance with security policies and industry regulations.
 
-For the latest and more information, to refer to the [Logging & Monitoring](https://docs.aws.amazon.com/controltower/latest/userguide/logging-and-monitoring.html).
 
-#### Continuous Improvement:
+## Implementation Guide
 
-- AWS Control Tower supports continuous improvement by allowing organizations to update and refine their account blueprints and guardrails over time.
-- This ensures that the environment stays in compliance with evolving security and operational requirements. 
+### Implementation Overview
 
-#### Integration with AWS Organizations: 
-
-- AWS Control Tower integrates with AWS Organizations, making it easier to manage and govern a growing number of AWS accounts.
-
-For the latest and more information, to refer to the [AWS Organization](https://docs.aws.amazon.com/organizations/latest/userguide/services-that-can-integrate-CTower.html).
-
-#### Log Archive Account: 
-
-- The Log Archive account is a dedicated AWS account created by AWS Control Tower to centralize and store logs generated by member accounts.
-- It serves as a centralized location for storing security and operational logs, ensuring long-term retention and easy access.
-
-#### Audit Account:
-
-- It serves as a centralized location for conducting audits, security assessments, and compliance checks across the AWS environment.
-
-## Deployment Overview
-
-The service catalog must be deployed to the Log Archive account and the customer member accounts which are part of the AWS Organization so it can collect logs accordingly. We have considered the following inputs for log ingestion 
+To deploy a centralized log management solution using AWS Control Tower and Elastic Cloud, you should follow a staged approach to ensure proper setup and integration between your AWS accounts and Elastic Cloud. The core application must be deployed in the Log Archive account created by AWS Control Tower to collect the logs from various AWS resources and forward them to Elastic Cloud. The helper application must be deployed in the customer member account(s) which are part of the AWS Organization so it can collect logs locally and send the logs to the central logging account (Log Archive account created by AWS Control Tower)/ingests logs to Elastic Cloud. Note that this helper application should be deployed in member account(s) after the core application is deployed in the Log Archive account . We have considered the following inputs for log ingestion 
 
 - AWS CloudTrail logs
 - Amazon S3 Access logs
@@ -154,25 +123,36 @@ The service catalog must be deployed to the Log Archive account and the customer
 - Amazon API Gateway logs via CloudWatch
 
 
-The service catalog will be deploying the solution as per the resources deployed in the member account and user requirements of the logs that are to be ingested into the Elastic Cloud. The CFT will deploy resources in the Log-Archive account and then another CFT will deploy the required resources in the member account. Please note that the deployment of the CFT should be initiated from the Master account and all the required resources will be deployed to the Log Archive account and the member account using the CloudFormation Stackset.
+The applications will be deploying the solution as per the resources deployed in the member account and user requirements of the logs that are to be ingested into the Elastic Cloud. The core application will deploy resources in the Log-Archive account and then the helper application will deploy the required resources in the member account. You can use Amazon Kinesis Firehose Delivery Stream to directly ingest logs into Elastic Cloud. The following log ingestion is supported by the Amazon Kinesis Firehose Delivery Stream
+
+- AWS CloudFront logs
+- EC2 logs in AWS CloudWatch
+- Amazon Elastic Load Balancing logs
+- AWS Network Firewall logs
+- Amazon Route 53 logs
+- Amazon S3 server access log
+- AWS VPC flow logs
+- AWS WAF Logs
 
 ## How Each Log Input is Collected and Sent to Elastic
 
-### AWS CloudTrail  
+Each log input is collected and sent to Elastic using different mechanisms and services in AWS. Here is a summary of how each log input is collected and sent to Elastic:
 
-AWS Control Tower collects CloudTrail logs from all accounts and all AWS Regions and stores the log data in a central S3 bucket in Log-Archive. Elastic pulls these logs using an SQS-based S3 input mechanism. New object notifications are sent to SQS. Elastic polls the queue to discover new log items, then ingests them from the S3 bucket.
+### AWS CloudTrail
+
+CloudTrail logs are collected from all accounts and regions and stored in a central S3 bucket in the Log Archive account. Elastic pulls these logs using an SQS-based S3 input mechanism from the S3 bucket.
 
 ### S3 Access Logs
 
-S3 access logs are collected locally in each region in each member account and replicated to the central S3 log bucket in the Log-Archive account. The logs from the S3 bucket in the log archive account are sent to the Elastic Serverless forwarder via the SQS.
+S3 access logs are collected locally in each region and replicated to the central S3 log bucket in the Log-Archive account. The logs are sent to Elastic using the Elastic Serverless Forwarder via SQS.
 
 ### Amazon ELB logs
 
-ELB logs are collected locally in each Region in each member account and replicated to the central S3 log bucket in the Log-Archive account. The logs from the S3 bucket in the log archive account are sent to the Elastic Serverless forwarder via the SQS.
+The ELB logs are collected locally in each region and replicated to the central S3 log bucketin the Log-Archive account. Logs are sent to Elastic using the Elastic Serverless Forwarder via SQS.
 
 ### Amazon VPC Flow logs
 
-Amazon VPC Flow logs can be sent directly to the central S3 log bucket in the Log Archive account. Amazon VPC Flow logs generate a lot of log data, so we don’t recommend that you generate them from each account and each region. GuardDuty analyzes Amazon VPC Flow logs to create findings. The logs from the S3 bucket in the log archive account are sent to the Elastic Serverless forwarder via the SQS.
+Amazon VPC Flow logs can be sent directly to the central S3 log bucket in the Log Archive account. Amazon VPC Flow logs generate a lot of log data, so we don’t recommend that you generate them from each account and each region. The logs from the S3 bucket in the log archive account are sent to the Elastic Serverless forwarder via the SQS.
 
 ### AWS Kinesis Data Stream
 
@@ -180,7 +160,7 @@ The item level changes in the DynamoDB are sent to Amazon Kinesis Data Stream. T
 
 ### AWS CloudWatch logs
 
-CloudWatch logs are subscribed by a subscriber Lambda function and sent to a Elastic Cloud by a Elastic Serverless Forwarder in each individual account, in all the AWS Regions.
+CloudWatch logs areb subscribed by a subscriber Lambda function and sent to Elastic Cloud using the Elastic Serverless Forwarder.
 
 ### Amazon GuardDuty Findings
 
@@ -238,10 +218,18 @@ Route 53, is a scalable and highly available DNS service, which supports monitor
 
 We can configure CloudWatch Logs to record API calls for the Amazon API Gateway service. The CloudWatch Log Group ARN is then provided as input to the Elastic Serverless Forwarder, which creates a subscription filter to send the logs to Elastic.
 
+### Ingesting logs using Amazon Kinesis Firehose
+
+To simplify the process and reduce management overhead, AWS users can now leverage the Amazon Kinesis Firehose Delivery Stream to ingest logs into Elastic Cloud in AWS in real time and view them in the Elastic Stack alongside other logs for centralized analytics. Elastic has collaborated with AWS to offer a seamless integration of Amazon Kinesis Data Firehose with Elastic, enabling direct ingestion of data from Amazon Kinesis Data Firehose into Elastic without the need for Agents or Beats. All you need to do is configure the Amazon Kinesis Data Firehose delivery stream to send its data to Elastic's endpoint.
+
+For example to send the VPC Flow logs to Elastic using Kinesis Firehose, you need to configure VPC Flow Logs to send to Amazon Kinesis Data Firehose. Create a "Flow Log" for the VPC and select the Kinesis Firehose delivery stream name (which is deployed by the application) in the same member account to which the flow logs will be published. Similarly you can configure AWS Network Firewall logs, AWS CloudFront logs, EC2 logs in AWS CloudWatch, Amazon Elastic Load Balancing logs, Amazon Route 53 logs, Amazon S3 server access log and AWS WAF Logs to send to Amazon Kinesis Data Firehose.
+
+
+These mechanisms and services ensure that each log input is collected and sent to Elastic for analysis and storage.
 
 ## Deployment Flow
 
-The Service Catalog deploys the required resources in the Log archive account and the member accounts. Following diagram shows the deployment flow of the CFT in the Log archive account.
+The core application and the helper application deploys the required resources in the Log archive account and the member account(s). Following diagram shows the deployment flow of the CFT in the Log archive account.
 
 ![alt text](images/elastic-log-archive-flow.png)
 
@@ -255,18 +243,14 @@ Following diagram shows the deployment flow of the CFT in the member account.
 
 AWS Lambda is a compute service that lets you run code without provisioning or managing servers. Lambda runs your code on a high-availability compute infrastructure and performs all of the administration of the compute resources, including server and operating system maintenance, capacity provisioning and automatic scaling, and logging. With Lambda, all you need to do is supply your code in one of the language runtimes that Lambda supports. For more information, refer [AWS Lambda Documentation](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html).
 
+
 ### Elastic Bootstrap Lambda Function
 
 The primary purpose of this Elastic Bootstrap Lambda function is to configure an S3 bucket event notification for the CloudTrail Logs S3 bucket created by AWS Control Tower in the Log Archive Account. Additionally, it generates a configuration file (config.yml) and uploads it to an S3 bucket created by a CloudFormation Template (CFT) specifically designed to store the config.yml object.
 
-#### Operation of the Bootstrap Lambda Function
+Here is how the Elastic Bootstrap Lambda function works:
 
-1. The Lambda function requires the following parameters:
-
-    - SQS queue ARN’S are used to configure properties in config.yml file.
-    - S3 bucket name used for uploading the config.yml file.
-    - Name of the CloudTrail S3 bucket created by AWS Control Tower.
-    - ARN of the Elastic secret to be included in the config.yml file.
+1. The Lambda function requires several parameters, including the ARN of the SQS queues to configure in the config.yml file, the S3 bucket name where the config.yml file will be uploaded, the name of the CloudTrail S3 bucket created by AWS Control Tower, and the ARN of the Elastic secret to be included in the config.yml file.
 
 1. After deploying the CloudFormation Template (CFT), required values are provided to the Bootstrap Lambda function as environment variables. The custom resource defined in the template then triggers the execution of this function.
 
@@ -289,9 +273,7 @@ The primary purpose of this Elastic Bootstrap Lambda function is to configure an
 
 Upon successful execution of the Bootstrap Lambda code, it configures event notifications for the CloudTrail logs S3 bucket, generates the config.yml file, and uploads the file to an S3 bucket.
 
- 
-
-In the Log Archive account, the Service Catalog product will be deploying the following resources using the CFT elastic-ingestion-log-archive.yaml.
+In the Log Archive account, the core application will be deploying the following resources.
 
 - S3 buckets to collect the S3 access logs from the member accounts
 - S3 buckets to collect the Elastic Load Balancer logs from the member accounts
@@ -309,7 +291,7 @@ In the Log Archive account, the Service Catalog product will be deploying the fo
 - Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
 - The Elastic ID and the API key is encrypted using the Secret Manager.
  
-In the Member account, the Service Catalog will be deploying the following resources using the CFT elastic-ingestion-member.yaml.
+In the Member account, the helper application will be deploying the following resources.
 
 - S3 buckets to store the VPC flow logs, S3 access logs, CloudTrail logs, S3 Access logs, Network Firewall logs, EMR logs, WAF logs, and CloudFront. These logs will be replicated to the buckets in the log archive account.
 - Policies for the S3 buckets
