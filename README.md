@@ -295,117 +295,104 @@ In the Member account, the helper application will be deploying the following re
 
 - S3 buckets to store the VPC flow logs, S3 access logs, CloudTrail logs, S3 Access logs, Network Firewall logs, EMR logs, WAF logs, and CloudFront. These logs will be replicated to the buckets in the log archive account.
 - Policies for the S3 buckets
-- If the user wants to either ingest Kinesis Data Streams or Amazon Cloudwatch logs to Elastic Cloud, then the following resources will be deployed. Please note that in this case the Kinesis Data Stream/Amazon Cloudwatch should be deployed in the member account as per the requirement.
+- If the user wants to either ingest Kinesis Data Streams or Amazon Cloudwatch logs to Elastic Cloud, then an Elastic Serverless Forwarder will be deployed to ingest the Kinesis Data Stream/Amazon Cloudwatch logs to Elastic Cloud as per requirement. Please note that in this case the Kinesis Data Stream/Amazon Cloudwatch should be deployed in the member account as per the requirement.
 - S3 bucket for storing the cofig.yaml file. 
-- Bootstrap Lambda function which will run a Python script to create config.yaml file required for elastic integration and upload the file to S3 bucket. 
-- Elastic Serverless Forwarder to ingest the Kinesis Data Stream/Amazon Cloudwatch logs to Elastic Cloud as per requirement.
+- Bootstrap Lambda function which will run a Python script to create config.yaml file required for elastic integration and upload the file to S3 bucket.
 - Policies for the S3 bucket (used for storing the config.yaml file) and Role and policy for bootstrap lambda.
 
 ## Deployment Steps:
 
-The src folder has 2 folders log-archive-account and member-account in which we have uploaded the required CFT files. Following are the instructions to deploy the Service Catalog solution in your AWS account.
+We have published 2 applications in the Serverless Application repository. Following are the applications that are published as part of the solution.
 
-1. Login to the AWS Master account.
+- elastic-log-ingestion-control-tower - This is the core application that is to be deployed in the log archive account and it deploys all the required resources in the log archive account.
+- helper-elastic-log-ingestion - This is the helper application which is to be deployed in the member account(s) after the deployment of the core application in the log archive account. This application deploys all the required resources to collects the logs from the member account(s) and sends the logs to the central logging bucket in the log archive account. Please note that this helper application should be deployed only after the core application is deployed successfully.
 
-2. Go to Service catalog and create a portfolio to organize your products and distribute them to end users. Please refer to the [Create a Portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-portfolio.html).
+1. Log into the AWS Log Archive account.
 
-    ![alt text](images/create-portfolio.png)
+1. Go to ***Serverless Application Repository***. In the serverless application repository, search and click on application ***elastic-log-ingestion-control-tower***.
 
-3. Download the CFTs **elastic-ingestion-log-archive.yaml** in log-archive-account folder from the src folder and **elastic-ingestion-member.yaml** in member-account folder from the src folder.
+    ![alt text](images/log-archive-app.png)
 
-4. Go to the Portfolio that you created and create 2 products - 1 for deploying resources in the Log Archive account and another one for deploying the resources in the member account. Select the product type as **CloudFormation** and version source as **use a template file** and upload the CFT downloaded from the src folder. Please refer to the [Create a new product in the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-product.html).
-
-    ![alt text](images/create-log-archive-product.png)
-
-    ![alt text](images/create-member-account-product.png)
-
-5. Create constraints for both the products created. For the product created for elastic-ingestion-log-archive.yaml, select **StackSet** as Constraint Type and enter the Log Archive account ID, so that the product can just be deployed in that particular account only. For the product created for elastic-ingestion-member.yaml, select **StackSet** as Constraint Type, and enter the member account ID/IDs, so that the product can just be deployed only in the mentioned member accounts. Also, provide the region specification for both the product constraints so the deployment can be only done in the region where the bucket that contains the zip file was deployed earlier. Please refer to [Adding Constraints](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/portfoliomgmt-constraints.html) for more details.
-
-    ![alt text](images/log-archive-constraint.png)
-
-    ![alt text](images/member-account-constraint.png)
-
-6. Once the products are added to the portfolio and constraints are added, you need to grant permission to allow yourself to view and launch products. Please refer to [Grant end users access to the portfolio](https://docs.aws.amazon.com/servicecatalog/latest/adminguide/getstarted-deploy.html) for more details.
-
-
-7. Now we are ready to deploy the products. To deploy the products to the Log Archive account, go to the **products** page, you will see the products for which you have granted access. Select the product and click on **Launch product**, provide the following parameters, and click on **Launch product** again:
-
-   7.1 Provisioned product name: Enter a unique name or select Generate name to provide a name automatically
+1. Once you click the application, scroll down in the application page and fill the application settings as mentioned below. Once the required information is provided under application settings, you are ready to deploy the application.
    
-   7.2 Select the product version
+   3.1 Application name: The stack name of this application created via AWS CloudFormation. You can leave the value as default.
    
-   7.3 Select the Log Archive account
+   3.2 CloudTrail Bucket Name: Name of the AWS Control Tower created CloudTrail S3 bucket present in Log Archive Account
+
+   3.3 CloudTrail Bucket ARN: ARN of the AWS Control Tower created CloudTrail S3 bucket present in Log Archive Account
+
+   3.4 Security Lake Bucket ARN: ARN of the Security Lake S3 bucket present in Log Archive Account
+
+   3.5 Security Lake SQS ARN: ARN of the Security Lake SQS present in Log Archive Account
    
-   7.4 Select the region of deployment
+   3.6 Elastic Cloud ID: Cloud ID of Elastic Cluster Deployment
    
-   7.5 CloudTrail Bucket Name: Name of the AWS Control Tower created CloudTrail S3 bucket present in Log Archive Account
+   3.7 Elastic API Key: RESTful API to provide access to deployment CRUD actions
 
-   7.6 CloudTrail Bucket ARN: ARN of the AWS Control Tower created CloudTrail S3 bucket present in Log Archive Account
+   3.8 AWS Organization ID: The ID of your AWS Organization.
 
-   7.7 Security Lake Bucket ARN: ARN of the Security Lake S3 bucket present in Log Archive Account
+   3.9 Deploy Serverless Forwarder In VPC: Select 'yes' if you want to deploy the Elastic Serverless Forwarder in VPC. This is an optional parameter.
 
-   7.8 Security Lake SQS ARN: ARN of the Security Lake SQS present in Log Archive Account
+   3.10 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+
+   3.11 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+
+   3.12 Route Table IDs: Specify the IDs of the route tables to be updated for the S3 bucket Gateway VPC Endpoint. Provide values only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+
+   3.13 Check the option for acknoledgement that this app creates custom IAM roles, resource policies and deploys nested applications and click on ***Deploy***.
+
+1. Wait for the deployment of the application and check if all the resources are successfully deployed as per the requirement.
+
+1. Log into the member account.
+
+1. Go to ***Serverless Application Repository***. In the serverless application repository, search and click on application ***helper-elastic-log-ingestion***.
+
+    ![alt text](images/member-account-app.png)
+
+1. Before deploying this helper application, please make sure that the core application is successfully deployed in the Log Archive account. Once you click the helper application, scroll down in the application page and fill the application settings as mentioned below. Once the required information is provided under application settings, you are ready to deploy the application.
+
+   7.1 Application name: The stack name of this application created via AWS CloudFormation. You can leave the value as default.
+
+   7.2 Account ID: AWS Account Id of the log-archive account
+
+   7.3 Logging Region: What region are the log buckets deployed in? Region of the central logging bucket created in the Log archive account.
+
+   7.4 Elastic Cloud ID: Cloud ID of Elastic Cluster Deployment
+
+   7.5 Elastic API Key: RESTful API to provide access to deployment CRUD actions
+
+   7.6 Ingest Kinesis Logs: Select 'yes' if you want to ingest Kinesis data streams. This is an optional parameter.
+
+   7.7 Kinesis Data Stream ARNs: Comma-delimited list of Kinesis Data Stream ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest Kinesis Logs***.
+
+   7.8 Ingest CloudWatch Logs: Select 'yes' if you want to ingest CloudWatch Log Group logs. This is an optional parameter.
+
+   7.9 CloudWatch LogGroup ARNs: Comma-delimited list of CloudWatch Log Group ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest CloudWatch Logs***.
+
+   7.10 Deploy Serverless Forwarder In VPC: If you want to ingest either Kinesis data Streams or the CloudWatch logs to Elastic Cloud, an Elastic Serverless Forwarder will be deployed. Select 'yes' if you want to deploy this Elastic Serverless Forwarder in VPC. This is an optional parameter.
+
+   7.11 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+
+   7.12 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+
+   7.13 Route Table IDs: Specify the IDs of the route tables to be updated for the S3 bucket Gateway VPC Endpoint. Provide values only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
    
-   7.9 Elastic Cloud ID: Cloud ID of Elastic Cluster Deployment
-   
-   7.10 Elastic API Key: RESTful API to provide access to deployment CRUD actions
+   7.14 Ingest Ec2 logs: Select 'yes' if you want to ingest Ec2 logs. This is an optional parameter.
 
-   7.11 Bootstrap Lambda Config Bucket: The S3 bucket name where the Bootstrap Lambda configuration zip file is stored.
+   7.15 Kibana URL: Provide the Kibana URL only if you have selected 'yes' for the parameter ***Ingest Ec2 Logs***.
 
-   7.12 Bootstrap Lambda Config File Path: The path in the S3 bucket where the Lambda configuration zip file is located.
+   7.16 Elasticsearch Username: Specify the username for accessing the Elasticsearch deployment.
 
-   7.13 AWS Organization ID: The ID of your AWS Organization.
+   7.17 Elasticsearch Password: Specify the password for accessing the Elasticsearch deployment.
 
-   7.14 Deploy Serverless Forwarder In VPC: Select 'yes' if you want to deploy the Elastic Serverless Forwarder in VPC. This is an optional parameter.
+   7.18 ElasticSearch DeploymentID: Specify the unique Deployment ID associated with your Elasticsearch deployment.
 
-   7.15 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+   7.19 Deployment Version: Specify the version of the Elasticsearch deployment
 
-   7.16 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
+   7.20 Enable Kinesis Firehose Ingestion: Specify whether you want to ingest logs to Elastic Cloud using Amazon Kinesis Firehose Delivery Stream. Choose 'Yes' to enable ingestion via Kinesis Firehose, or 'No' to ingest logs via a different method.
 
+   7.21 Elasticsearch Endpoint URL: Specify the endpoint URL of your Elastic deployment. This is the URL where your Elastic services are hosted. Note: Ensure this value is entered accurately to enable proper integration with your Elastic deployment. Provide value only if you have selected 'yes' for the parameter ***Enable Kinesis Firehose Ingestion***.
 
-8. To deploy the products to the Log Archive account, go to the **products** page, select the product and click on **Launch product**, provide the following parameters, and click on **Launch product** again::
+   7.22 Check the option for acknoledgement that this app creates custom IAM roles, resource policies and deploys nested applications and click on ***Deploy***.
 
-   8.1 Provisioned product name: Enter a unique name or select Generate name to provide a name automatically
-   
-   8.2 Select the product version
-   
-   8.3 Select the member account where you to deploy the product
-   
-   8.4 Select the region of deployment
-
-   8.5 Account ID: AWS Account Id of the log-archive account
-
-   8.6 Logging Region: What region are the log buckets in? Region of the central logging bucket created in the Log archive account.
-
-   8.7 AWS Organization ID: The ID of your AWS Organization
-
-   8.8 Elastic Cloud ID: Cloud ID of Elastic Cluster Deployment
-
-   8.9 Elastic API Key: RESTful API to provide access to deployment CRUD actions
-
-   8.10 Bootstrap Lambda Config Bucket: The S3 bucket name where the Elastic Bootstrap Lambda configuration zip file is stored.
-
-   8.11 Bootstrap Lambda Config File Path: The path in the S3 bucket where the Elastic Bootstrap Lambda configuration zip file is located.
-
-   8.12 Ingest Kinesis Logs: Select 'yes' if you want to ingest Kinesis data streams. This is an optional parameter.
-
-   8.13 Kinesis Data Stream ARNs: Comma-delimited list of Kinesis Data Stream ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest Kinesis Logs***.
-
-   8.14 Ingest CloudWatch Logs: Select 'yes' if you want to ingest CloudWatch Log Group logs. This is an optional parameter.
-
-   8.15 CloudWatch LogGroup ARNs: Comma-delimited list of CloudWatch Log Group ARNs. Provide value only if you have selected 'yes' for the parameter ***Ingest CloudWatch Logs***.
-
-   8.16 Deploy Serverless Forwarder In VPC: If you want to ingest either Kinesis data Streams or the CloudWatch logs to Elastic Cloud, an Elastic Serverless Forwarder will be deployed. Select 'yes' if you want to deploy this Elastic Serverless Forwarder in VPC. This is an optional parameter.
-
-   8.17 VPC ID: Enter the VPC ID in which you want to deploy the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
-
-   8.18 Subnet IDs: Enter the Subnet IDs (comma-separated) for the Elastic Serverless Forwarder. Provide value only if you have selected 'yes' for the parameter ***Deploy Serverless Forwarder In VPC***.
-   
-   8.19 Ingest Ec2 logs: Select 'yes' if you want to ingest Ec2 logs. This is an optional parameter.
-
-   8.20 Enrollment Token: Provide the Enrollment Token only if you have selected 'yes' for the parameter ***Ingest Ec2 Logs***.
-
-   8.21 Kibana URL: Provide the Kibana URL only if you have selected 'yes' for the parameter ***Ingest Ec2 Logs***.
-   
-9.  Once the deployment of the CFTs are completed, log into the Elastic dashboard to view the logs ingested.
-
+7. Once the deployment of the helper application is completed, log into the Elastic dashboard to view the logs ingested.
