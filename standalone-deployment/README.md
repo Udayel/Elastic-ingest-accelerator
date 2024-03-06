@@ -1,4 +1,4 @@
-# Elastic-ingest-accelerator
+# Elastic-ingest-accelerator-standalone
 
 <!-- TOC -->
 

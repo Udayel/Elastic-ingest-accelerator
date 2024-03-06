@@ -1,0 +1,263 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "This template deploys an EC2 instance within a Virtual Private Cloud (VPC), installs the Elastic Agent on the instance, and configures it to send logs to Kibana.",
+    "Parameters": {
+        "ElasticEC2AgentSubnet": {
+            "Type": "String",
+            "Default": "",
+            "Description": "The ID of the subnet to launch the instance into."
+        },
+        "ElasticEC2AgentVPC": {
+            "Type": "String",
+            "Default": "",
+            "Description": "The ID of the VPC for the security group"
+        },
+        "KibanaURL": {
+            "Type": "String",
+            "Default": "",
+            "Description": "If you want to ingest EC2 logs to Elastic Cloud, then provide the Kibana URL in this section."
+        },
+        "AMIID": {
+            "Type": "String",
+            "Default": "",
+            "Description": "Specifies the AMI ID of the base Amazon Machine Image for the EC2 instance where the Elastic Agent will be installed. Provide a valid AMI ID to ensure the correct configuration of the EC2 environment."
+        },
+        "ELASTICSEARCHUSERNAME": {
+            "Type": "String",
+            "Default": ""
+        },
+        "ELASTICSEARCHPASSWORD": {
+            "Type": "String",
+            "Default": ""
+        },
+        "ElasticSearchDeploymentID": {
+            "Type": "String",
+            "Default": ""
+        },
+        "DeploymentVersion": {
+            "Type": "String",
+            "Default": ""
+        },
+        "TagKeyName1": {
+            "Type": "String",
+            "Description": "The key for Tag 1 to be added for the resources being deployed.",
+            "Default": "division"
+        },
+        "TagValueName1": {
+            "Type": "String",
+            "Description": "The value for Tag 1 to be added for the resources being deployed.",
+            "Default": "field"
+        },
+        "TagKeyName2": {
+            "Type": "String",
+            "Description": "The key for Tag 2 to be added for the resources being deployed.",
+            "Default": "project"
+        },
+        "TagValueName2": {
+            "Type": "String",
+            "Description": "The value for Tag 2 to be added for the resources being deployed.",
+            "Default": "udaystestd"
+        },
+        "TagKeyName3": {
+            "Type": "String",
+            "Description": "The key for Tag 3 to be added for the resources being deployed.",
+            "Default": "org"
+        },
+        "TagValueName3": {
+            "Type": "String",
+            "Description": "The value for Tag 3 to be added for the resources being deployed.",
+            "Default": "sa"
+        },
+        "TagKeyName4": {
+            "Type": "String",
+            "Description": "The key for Tag 4 to be added for the resources being deployed.",
+            "Default": "CreatorId"
+        },
+        "TagValueName4": {
+            "Type": "String",
+            "Description": "The value for Tag 4 to be added for the resources being deployed.",
+            "Default": "46148586973"
+        },
+        "TagKeyName5": {
+            "Type": "String",
+            "Description": "The key for Tag 5 to be added for the resources being deployed.",
+            "Default": "CreatorName"
+        },
+        "TagValueName5": {
+            "Type": "String",
+            "Description": "The value for Tag 5 to be added for the resources being deployed.",
+            "Default": "uday@elastic.co"
+        },
+        "TagKeyName6": {
+            "Type": "String",
+            "Description": "The key for Tag 6 to be added for the resources being deployed.",
+            "Default": "team"
+        },
+        "TagValueName6": {
+            "Type": "String",
+            "Description": "The value for Tag 6 to be added for the resources being deployed.",
+            "Default": "a-team"
+        }    
+    },
+    "Resources": {
+        "ElasticEC2InstanceSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow SSH to client host",
+                "VpcId": {
+                    "Ref": "ElasticEC2AgentVPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 0,
+                        "ToPort": 65535,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "ElasticEc2AgentInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": {
+                    "Ref": "AMIID"
+                },
+                "InstanceType": "t2.micro",
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "ElasticEC2InstanceSecurityGroup"
+                    }
+                ],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "Encrypted": false,
+                            "DeleteOnTermination": true,
+                            "VolumeSize": 30,
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "KeyName": {
+                    "Ref": "ElasticKeyPair"
+                },
+                "SubnetId": {
+                    "Ref": "ElasticEC2AgentSubnet"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [ 
+                                "#!/bin/bash -xe \n",
+                                "echo 'Starting user data script' > /var/log/user_data.log \n",
+                                "ELASTICSEARCH_USERNAME=",
+                                {
+                                    "Ref": "ELASTICSEARCHUSERNAME"
+                                },
+                                "\n",
+                                "ELASTICSEARCH_PASSWORD=",
+                                {
+                                    "Ref": "ELASTICSEARCHPASSWORD"
+                                },
+                                "\n",
+                                "KIBANA_URL=",
+                                {
+                                    "Ref": "KibanaURL"
+                                },
+                                "\n",
+                                "DeploymentID=",
+                                {
+                                    "Ref": "ElasticSearchDeploymentID"
+                                },
+                                "\n",
+                                "DeploymentVersion=",
+                                {
+                                    "Ref": "DeploymentVersion"
+                                },
+                                "\n",
+                                "export ELASTICSEARCH_USERNAME=$ELASTICSEARCH_USERNAME \n",
+                                "export ELASTICSEARCH_PASSWORD=$ELASTICSEARCH_PASSWORD \n",
+                                "export KIBANA_URL=$KIBANA_URL \n",
+                                "export DeploymentID=$DeploymentID \n",
+                                "export DeploymentVersion=$DeploymentVersion \n",
+                                "wget https://elastic-proxy.s3.amazonaws.com/elastic-agent.sh \n",
+                                "sed -i -e ''s/\r$//'' elastic-agent.sh \n",
+                                "chmod +x elastic-agent.sh \n",
+                                "bash elastic-agent.sh \n"        
+                            ]
+                        ]
+                    }
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Elastic-EC2-Agent"
+                    },
+                    {
+                        "Key": {
+                            "Ref": "TagKeyName1"
+                        },
+                        "Value": {
+                            "Ref": "TagValueName1"
+                        }
+                    },
+                    {
+                        "Key": {
+                            "Ref": "TagKeyName2"
+                        },
+                        "Value": {
+                            "Ref": "TagValueName2"
+                        }
+                    },
+                    {
+                        "Key": {
+                            "Ref": "TagKeyName3"
+                        },
+                        "Value": {
+                            "Ref": "TagValueName3"
+                        }
+                    },
+                    {
+                        "Key": {
+                            "Ref": "TagKeyName4"
+                        },
+                        "Value": {
+                            "Ref": "TagValueName4"
+                        }
+                    },
+                    {
+                        "Key": {
+                            "Ref": "TagKeyName5"
+                        },
+                        "Value": {
+                            "Ref": "TagValueName5"
+                        }
+                    },
+                    {
+                        "Key": {
+                            "Ref": "TagKeyName6"
+                        },
+                        "Value": {
+                            "Ref": "TagValueName6"
+                        }
+                    }
+                ]
+            }
+        },
+        "ElasticKeyPair": {
+            "Type": "AWS::EC2::KeyPair",
+            "Properties": {
+                "KeyName": "elastic-agent-key"
+            }
+        }
+    }
+}
