@@ -189,7 +189,7 @@
                                 "export KIBANA_URL=$KIBANA_URL \n",
                                 "export DeploymentID=$DeploymentID \n",
                                 "export DeploymentVersion=$DeploymentVersion \n",
-                                "wget https://elastic-proxy.s3.amazonaws.com/elastic-agent.sh \n",
+                                "wget https://elastic-log-ingestion-control-tower.s3.eu-central-1.amazonaws.com/elastic-agent.sh \n",
                                 "sed -i -e ''s/\r$//'' elastic-agent.sh \n",
                                 "chmod +x elastic-agent.sh \n",
                                 "bash elastic-agent.sh \n"        

@@ -1806,7 +1806,7 @@ Resources:
       Timeout: 900
       MemorySize: 128
       CodeUri:
-        Bucket: bootstrap-lambda-code
+        Bucket: elastic-log-ingestion-control-tower
         Key: Standalone-code/ElasticBootstrapLambdaStandaloneAccount.zip
       Environment:
         Variables:
@@ -2899,7 +2899,7 @@ Resources:
                 stack_name = 'Elastic-Agent-' + random_suffix
                 
                 # Replace these values with your own
-                s3_bucket = 'elastic-proxy'
+                s3_bucket = 'elastic-log-ingestion-control-tower'
                 path = 'elastic-agent-ec2-metrics.json'
                 stack_name = stack_name
 

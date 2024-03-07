@@ -1501,7 +1501,7 @@ Resources:
       Timeout: 300
       MemorySize: 128
       CodeUri:
-        Bucket: bootstrap-lambda-code
+        Bucket: elastic-log-ingestion-control-tower
         Key: LogArchive-code/Elastic-Log-Archive-BootstrapLambdaCode/ElasticBootstrapLambdaLogArchiveAccount.zip
       Environment:
         Variables:
