@@ -159,7 +159,7 @@ Parameters:
     TagValueName2:
       Type: String
       Description: The value for Tag 2 to be added for the resources being deployed.
-      Default: "udaystestd"
+      Default: "test-env"
       
     TagKeyName3:
       Type: String
@@ -189,7 +189,7 @@ Parameters:
     TagValueName5:
       Type: String
       Description: The value for Tag 5 to be added for the resources being deployed.
-      Default: "uday@elastic.co"
+      Default: "dummy@.co"
       
     TagKeyName6:
       Type: String
@@ -1213,7 +1213,7 @@ Resources:
       Timeout: 300
       MemorySize: 128
       CodeUri:
-        Bucket: bootstrap-lambda-code
+        Bucket: elastic-log-ingestion-control-tower
         Key: MemberAccount-code/ElasticBootstrapLambdaMemberAccount.zip
       Environment:
         Variables:
@@ -2109,112 +2109,16 @@ Resources:
           Value: !Ref TagValueName6
         
   ElasticAgentLambdaFunction:       # Serverless function responsible for deploying cloudformation stack which creates EC2 instance with elastic agent installed.
-    Type: AWS::Serverless::Function
-    Condition: ShouldIngestEC2InstanceLogs
+    Type: 'AWS::Serverless::Function'
     Properties:
-      Handler: index.lambda_handler
+      Handler: lambda_function.lambda_handler
       Role: !GetAtt ElasticAgentLambdaExecutionRole.Arn
       Runtime: python3.9
-      InlineCode: |
-            import boto3
-            import os
-            import botocore
-            import json
-            import uuid
-            import random
-            import string
-            import cfnresponse
-
-            def lambda_handler(event, context):
-                
-                responseData = {}                
-                # Generate a random suffix adhering to the CloudFormation stack name pattern
-                random_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-
-                # Combine the suffix with a prefix adhering to the pattern (e.g., "Elastic-Agent-")
-                stack_name = 'Elastic-Agent-' + random_suffix
-                
-                # Replace these values with your own
-                s3_bucket = 'elastic-proxy'
-                path = 'elastic-agent-ec2-metrics.json'
-                stack_name = stack_name
-
-                # Extract parameters from the Lambda input
-                kibana_url = os.getenv('KibanaURL')
-                elasticsearch_username = os.getenv('ELASTICSEARCHUSERNAME')
-                elasticsearch_password = os.getenv('ELASTICSEARCHPASSWORD')
-                elasticsearch_deploymentid = os.getenv('ElasticSearchDeploymentID')
-                elasticsearch_deploymentversion = os.getenv('DeploymentVersion')
-                region = os.getenv('REGION')
-                ami_id = os.getenv('AMIID')
-                agent_subnet = os.getenv('ElasticEC2AgentSubnet')
-                agent_vpc = os.getenv('ElasticEC2AgentVPC')
-                tag_key1 = os.getenv('TagKeyName1')
-                tag_value1 = os.getenv('TagValueName1')
-                tag_key2 = os.getenv('TagKeyName2')
-                tag_value2 = os.getenv('TagValueName2')
-                tag_key3 = os.getenv('TagKeyName3')
-                tag_value3 = os.getenv('TagValueName3')
-                tag_key4 = os.getenv('TagKeyName4')
-                tag_value4 = os.getenv('TagValueName4')
-                tag_key5 = os.getenv('TagKeyName5')
-                tag_value5 = os.getenv('TagValueName5')
-                tag_key6 = os.getenv('TagKeyName6')
-                tag_value6 = os.getenv('TagValueName6')
-
-                # Set up Boto3 clients
-                s3_client = boto3.client('s3', region_name=region)
-                cloudformation_client = boto3.client('cloudformation', region_name=region)
-                
-                # Fetch the CloudFormation Template from S3
-                try:
-                    response = s3_client.get_object(Bucket=s3_bucket, Key=path)
-                    template_body = response['Body'].read().decode('utf-8')
-                except botocore.exceptions.ClientError as e:
-                    print(f"Error fetching template from S3: {e}")
-                    return {
-                        'statusCode': 500,
-                        'body': json.dumps('Error fetching template from S3')
-                    }
-                
-                # Deploy the CloudFormation Template
-                try:
-                    response = cloudformation_client.create_stack(
-                        StackName=stack_name,
-                        TemplateBody=template_body,
-                        Parameters=[
-                            {'ParameterKey': 'ElasticEC2AgentSubnet', 'ParameterValue': agent_subnet},
-                            {'ParameterKey': 'ElasticEC2AgentVPC', 'ParameterValue': agent_vpc},
-                            {'ParameterKey': 'KibanaURL', 'ParameterValue': kibana_url},
-                            {'ParameterKey': 'AMIID', 'ParameterValue': ami_id},
-                            {'ParameterKey': 'ELASTICSEARCHUSERNAME', 'ParameterValue': elasticsearch_username},
-                            {'ParameterKey': 'ELASTICSEARCHPASSWORD', 'ParameterValue': elasticsearch_password},
-                            {'ParameterKey': 'ElasticSearchDeploymentID', 'ParameterValue': elasticsearch_deploymentid},
-                            {'ParameterKey': 'DeploymentVersion', 'ParameterValue': elasticsearch_deploymentversion},
-                            {'ParameterKey': 'TagKeyName1', 'ParameterValue': tag_key1},
-                            {'ParameterKey': 'TagValueName1', 'ParameterValue': tag_value1},
-                            {'ParameterKey': 'TagKeyName2', 'ParameterValue': tag_key2},
-                            {'ParameterKey': 'TagValueName2', 'ParameterValue': tag_value2},
-                            {'ParameterKey': 'TagKeyName3', 'ParameterValue': tag_key3},
-                            {'ParameterKey': 'TagValueName3', 'ParameterValue': tag_value3},
-                            {'ParameterKey': 'TagKeyName4', 'ParameterValue': tag_key4},
-                            {'ParameterKey': 'TagValueName4', 'ParameterValue': tag_value4},
-                            {'ParameterKey': 'TagKeyName5', 'ParameterValue': tag_key5},
-                            {'ParameterKey': 'TagValueName5', 'ParameterValue': tag_value5},
-                            {'ParameterKey': 'TagKeyName6', 'ParameterValue': tag_key6},
-                            {'ParameterKey': 'TagValueName6', 'ParameterValue': tag_value6},
-                        ],
-                        Capabilities=['CAPABILITY_NAMED_IAM']  # Add capabilities if needed
-                    )
-                    print(f"Stack {stack_name} creation initiated. Stack ID: {response['StackId']}")
-                except botocore.exceptions.ClientError as e:
-                    print(f"Error deploying CloudFormation Template: {e}")
-                    # Send a failure response with the error reason
-                    cfnresponse.send(event, context, cfnresponse.FAILED, responseData, reason=str(e))
-    
-                print("CloudFormation Template deployed successfully.")
-                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData)        
       Timeout: 900
+      MemorySize: 128
+      CodeUri:
+        Bucket: elastic-log-ingestion-control-tower
+        Key: ElasticAgent-code/ElasticAgent.zip
       Environment:
         Variables:
           AMIID: 
