@@ -56,7 +56,7 @@
         "TagValueName2": {
             "Type": "String",
             "Description": "The value for Tag 2 to be added for the resources being deployed.",
-            "Default": "udaystestd"
+            "Default": "test-env"
         },
         "TagKeyName3": {
             "Type": "String",
@@ -86,7 +86,7 @@
         "TagValueName5": {
             "Type": "String",
             "Description": "The value for Tag 5 to be added for the resources being deployed.",
-            "Default": "uday@elastic.co"
+            "Default": "dummy@.co"
         },
         "TagKeyName6": {
             "Type": "String",
@@ -189,7 +189,7 @@
                                 "export KIBANA_URL=$KIBANA_URL \n",
                                 "export DeploymentID=$DeploymentID \n",
                                 "export DeploymentVersion=$DeploymentVersion \n",
-                                "wget https://elastic-proxy.s3.amazonaws.com/elastic-agent.sh \n",
+                                "wget https://raw.githubusercontent.com/Udayel/Elastic-ingest-accelerator/main/src/ElasticAgent/elastic-agent.sh \n",
                                 "sed -i -e ''s/\r$//'' elastic-agent.sh \n",
                                 "chmod +x elastic-agent.sh \n",
                                 "bash elastic-agent.sh \n"        

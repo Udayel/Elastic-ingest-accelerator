@@ -86,7 +86,7 @@ Parameters:
     TagValueName2:
       Type: String
       Description: The value for Tag 2 to be added for the resources being deployed.
-      Default: "udaystestd"
+      Default: "test-env"
       
     TagKeyName3:
       Type: String
@@ -116,7 +116,7 @@ Parameters:
     TagValueName5:
       Type: String
       Description: The value for Tag 5 to be added for the resources being deployed.
-      Default: "uday@elastic.co"
+      Default: "dummy@.co"
       
     TagKeyName6:
       Type: String
@@ -1501,7 +1501,7 @@ Resources:
       Timeout: 300
       MemorySize: 128
       CodeUri:
-        Bucket: bootstrap-lambda-code
+        Bucket: elastic-log-ingestion-control-tower
         Key: LogArchive-code/Elastic-Log-Archive-BootstrapLambdaCode/ElasticBootstrapLambdaLogArchiveAccount.zip
       Environment:
         Variables:
