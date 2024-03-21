@@ -208,7 +208,7 @@
                                 "export DashboardPreloggedInCustomDomainURL=$DashboardPreloggedInCustomDomainURL \n",
                                 "export UserName=$UserName \n",
                                 "export Password=$Password \n",
-                                "wget https://raw.githubusercontent.com/Udayel/Elastic-ingest-accelerator/main/src/Elastic-cloud-reverse-proxy-integration/elastic-proxy.sh \n",
+                                "wget https://raw.githubusercontent.com/Udayel/Elastic-ingest-accelerator/main/Elastic-cloud-reverse-proxy-integration/elastic-proxy.sh \n",
                                 "sed -i -e ''s/\r$//'' elastic-proxy.sh \n",
                                 "chmod +x elastic-proxy.sh \n",
                                 "bash elastic-proxy.sh \n",
