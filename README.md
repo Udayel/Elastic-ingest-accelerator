@@ -11,11 +11,9 @@
 7. [Deployment Flow](#deployment-flow)
 8. [Technical details](#technical-details)
 9. [Deployment Steps](#deployment-steps)
-10. [Deployment Overview and Resource Configuration Details for Core Application](#core-application)
-11. [Deployment Overview and Resource Configuration Details for Helper Application](#helper-application)
+10. [Deployment Overview and Resource Configuration Details for Core Application](#deployment-overview-and-resource-configuration-details-for-core-application)
+11. [Deployment Overview and Resource Configuration Details for Helper Application](#deployment-overview-and-resource-configuration-details-for-hepler-application)
 12. [Post Deployment Steps](#post-deployment-steps)
-
-
 
 
 <!-- /TOC -->

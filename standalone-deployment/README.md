@@ -10,7 +10,7 @@
 6. [Deployment Flow](#deployment-flow)
 7. [Technical details](#technical-details)
 8. [Deployment Steps](#deployment-steps)
-9. [Deployment Overview and Resource Configuration Details](#deployment-overview)
+9. [Deployment Overview and Resource Configuration Details](#deployment-overview-and-resource-configuration-details)
 
 
 <!-- /TOC -->
