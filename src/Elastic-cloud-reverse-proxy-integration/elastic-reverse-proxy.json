@@ -1,0 +1,235 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "This template deploys an EC2 instance within a Virtual Private Cloud (VPC), installs the Elastic Agent on the instance, and configures it to send logs to Kibana.",
+    "Parameters": {
+        "ElasticSubnet": {
+            "Type": "String",
+            "Default": "",
+            "Description": "The ID of the subnet to launch the instance into."
+        },
+        "ElasticVPC": {
+            "Type": "String",
+            "Default": "",
+            "Description": "The ID of the VPC for the security group"
+        },
+        "AMIID": {
+            "Type": "String",
+            "Default": "",
+            "Description": "Specifies the AMI ID of the base Amazon Machine Image for the EC2 instance where the Elastic Agent will be installed. Provide a valid AMI ID to ensure the correct configuration of the EC2 environment."
+        },
+        "ElasticCustomURL": {
+            "Description": "Custom URL for Elasticsearch",
+            "Type": "String"
+        },
+        "ElasticEndpoint": {
+            "Description": "Endpoint for Elasticsearch",
+            "Type": "String"
+        },
+        "ElasticClusterID": {
+            "Description": "Elasticsearch Cluster ID",
+            "Type": "String"
+        },
+        "KibanaCustomURL": {
+            "Description": "Custom URL for Kibana",
+            "Type": "String"
+        },
+        "KibanaEndpoint": {
+            "Description": "Endpoint for Kibana",
+            "Type": "String"
+        },
+        "KibanaComponentID": {
+            "Description": "Kibana Component ID",
+            "Type": "String"
+        },
+        "AnonymousAccess": {
+            "Description": "Do you want to allow presigned access to the dashboard",
+            "AllowedValues" : ["Yes", "No"],
+            "Default": "No",
+            "Type": "String"
+        },
+        "DashboardPreloggedInCustomDomainURL": {
+            "Description": "Custom Domain URL for pre-logged-in dashboard",
+            "Type": "String",
+            "Default": ""
+        },
+        "UserName": {
+            "Description": "Username for authentication",
+            "Type": "String",
+            "Default": ""
+        },
+        "Password": {
+            "Description": "Password for authentication",
+            "Type": "String",
+            "NoEcho": true,
+            "Default": ""
+        }    
+    },
+    "Resources": {
+        "ElasticEC2InstanceSecurityGroup": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Allow SSH to client host",
+                "VpcId": {
+                    "Ref": "ElasticVPC"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 0,
+                        "ToPort": 65535,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 22,
+                        "ToPort": 22,
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ],
+                "SecurityGroupEgress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 443,
+                        "ToPort": 443,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 9243,
+                        "ToPort": 9243,
+                        "CidrIp": "0.0.0.0/0"
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": 0,
+                        "ToPort": 65535,
+                        "CidrIp": "0.0.0.0/0"
+                    }
+                ]
+            }
+        },
+        "ElasticEC2ProxyInstance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": {
+                    "Ref": "AMIID"
+                },
+                "InstanceType": "t2.micro",
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "ElasticEC2InstanceSecurityGroup"
+                    }
+                ],
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/sda1",
+                        "Ebs": {
+                            "Encrypted": false,
+                            "DeleteOnTermination": true,
+                            "VolumeSize": 8,
+                            "VolumeType": "gp2"
+                        }
+                    }
+                ],
+                "KeyName": {
+                    "Ref": "ElasticKeyPair"
+                },
+                "SubnetId": {
+                    "Ref": "ElasticSubnet"
+                },
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [ 
+                                "#!/bin/bash -xe \n",
+                                "echo 'Starting user data script' > /var/log/user_data.log \n",
+                                "apt-get update -y \n",
+                                "apt-get install nginx -y \n",
+                                "apt-get install certbot python3-certbot-nginx -y \n",
+                                "openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048 \n",
+                                "Elastic_Custom_URL=",
+                                {
+                                    "Ref": "ElasticCustomURL"
+                                },
+                                "\n",
+                                "Elastic_Endpoint=",
+                                {
+                                    "Ref": "ElasticEndpoint"
+                                },
+                                "\n",
+                                "Elastic_Cluster_ID=",
+                                {
+                                    "Ref": "ElasticClusterID"
+                                },
+                                "\n",
+                                "Kibana_Custom_URL=",
+                                {
+                                    "Ref": "KibanaCustomURL"
+                                },
+                                "\n",
+                                "Kibana_Endpoint=",
+                                {
+                                    "Ref": "KibanaEndpoint"
+                                },
+                                "\n",
+                                "Kibana_Component_ID=",
+                                {
+                                    "Ref": "KibanaComponentID"
+                                },
+                                "\n",
+                                "Anonymous_Access=",
+                                {
+                                    "Ref": "AnonymousAccess"
+                                },
+                                "\n",
+                                "DashboardPreloggedInCustomDomainURL=",
+                                {
+                                    "Ref": "DashboardPreloggedInCustomDomainURL"
+                                },
+                                "\n",
+                                "UserName=",
+                                {
+                                    "Ref": "UserName"
+                                },
+                                "\n",
+                                "Password=",
+                                {
+                                    "Ref": "Password"
+                                },
+                                "\n",
+                                "export Elastic_Custom_URL=$Elastic_Custom_URL \n",
+                                "export Elastic_Endpoint=$Elastic_Endpoint \n",
+                                "export Elastic_Cluster_ID=$Elastic_Cluster_ID \n",
+                                "export Kibana_Custom_URL=$Kibana_Custom_URL \n",
+                                "export Kibana_Endpoint=$Kibana_Endpoint \n",
+                                "export Kibana_Component_ID=$Kibana_Component_ID \n",
+                                "export Anonymous_Access=$Anonymous_Access \n",
+                                "export DashboardPreloggedInCustomDomainURL=$DashboardPreloggedInCustomDomainURL \n",
+                                "export UserName=$UserName \n",
+                                "export Password=$Password \n",
+                                "wget https://raw.githubusercontent.com/Udayel/Elastic-ingest-accelerator/main/src/Elastic-cloud-reverse-proxy-integration/elastic-proxy.sh \n",
+                                "sed -i -e ''s/\r$//'' elastic-proxy.sh \n",
+                                "chmod +x elastic-proxy.sh \n",
+                                "bash elastic-proxy.sh \n",
+                                "systemctl stop nginx \n"
+                            ]
+                        ]
+                    }
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Elastic-Reverse-Proxy"
+                    }
+                ]
+            }
+        },
+        "ElasticKeyPair": {
+            "Type": "AWS::EC2::KeyPair",
+            "Properties": {
+                "KeyName": "elasticproxyKey"
+            }
+        }
+    }
+}
